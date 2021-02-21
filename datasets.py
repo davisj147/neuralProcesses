@@ -1,11 +1,73 @@
 import glob
 import numpy as np
 import torch
+import scipy.spatial
 from math import pi
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 from torchvision import datasets, transforms
 
+
+class GPData(Dataset):
+    """
+    Dataset of functions f(x) = a * sin(x - b) where a and b are randomly
+    sampled. The function is evaluated from -pi to pi.
+
+    Parameters
+    ----------
+    lengthscale_range : tuple of float
+        Defines the range from which the amplitude (i.e. a) of the sine function
+        is sampled.
+
+    shift_range : tuple of float
+        Defines the range from which the shift (i.e. b) of the sine function is
+        sampled.
+
+    num_samples : int
+        Number of samples of the function contained in dataset.
+
+    num_points : int
+        Number of points at which to evaluate f(x) for x in [-1, 1]. <- could also change this later
+    """
+    def __init__(self, lengthscale_range=(0.1, 2), noise_range=(0.05, 1), num_samples=1000, num_points=100):
+        self.num_samples = num_samples
+        self.num_points = num_points
+        self.x_dim = 1  # x and y dim are fixed for this dataset.
+        self.y_dim = 1
+
+        min_l, max_l = lengthscale_range
+        min_noise, max_noise = noise_range
+
+        # Generate data
+        rng = np.random.default_rng()
+        self.xs = []
+        self.ys = []
+        for i in range(num_samples):
+            points = rng.uniform(low=-1, high=1, size=(num_points, 1))
+            self.xs.append(points)
+            
+            lengthscale = (max_l - min_l) * rng.random() + min_l
+            noise = (max_noise - min_noise) * rng.random() + min_noise
+
+            cov = self.rbf_kernel(points, points, lengthscale, noise)
+
+            y = rng.multivariate_normal(points[:, 0], cov)
+
+            self.ys.append(np.expand_dims(y, 1))
+
+    # will hopefully be able to add other kernels
+    def rbf_kernel(self, xa, xb, lengthscale, noise):
+        """rbf kernel"""
+        # L2 distance (Squared Euclidian)
+        sq_norm = -0.5 * scipy.spatial.distance.cdist(xa, xb, 'sqeuclidean')
+        return (noise**2)*np.exp(sq_norm/(lengthscale**2))
+
+    def __getitem__(self, index):
+        # slightly changed because not sure if it makes sense to choose points as linspace for training
+        return self.xs[index], self.ys[index]
+
+    def __len__(self):
+        return self.num_samples
 
 class SineData(Dataset):
     """
@@ -59,7 +121,7 @@ class SineData(Dataset):
         return self.num_samples
 
 
-def mnist(batch_size=16, size=28, path_to_data='./data'):
+def mnist(batch_size=16, size=28, path_to_data='../data'):
     """MNIST dataloader.
 
     Parameters
