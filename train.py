@@ -39,5 +39,11 @@ def train(
 
     pass
 
-def np_loss():
-    pass
+def np_loss(dist_y, y_target, dist_context, dist_target):
+    # assumes the first dimension (0) corresponds to batch element
+
+    # total log probability of ys averaged over the batch
+    ll  = dist_y.log_prob(y_target).mean(dim=0).sum()
+    kl = kl_divergence(dist_target, dist_context).mean(dim=0).sum()
+    
+    return -1*ll + kl
