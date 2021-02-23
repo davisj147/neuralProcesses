@@ -51,6 +51,7 @@ def process_data_to_points(X_train, y_train, n_context, n_total=None):
         # for now all images in batch will have the same points selected because I can't figure out gather
         xs, ys = batch_img_to_functional(X_train)
 
+<<<<<<< HEAD
     else:
         xs, ys = X_train, y_train
 
@@ -84,6 +85,8 @@ def batch_img_to_functional(batch_imgs):
 
     return xs, ys
 
+=======
+>>>>>>> ef908e263e89418fd09088f49943a69e2a3f9715
 def np_loss(dist_y, y_target, dist_context, dist_target):
     # assumes the first dimension (0) corresponds to batch element
 

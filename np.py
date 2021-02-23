@@ -81,8 +81,11 @@ class LinearDecoder(nn.Module):
     def __init__(self, x_dim, z_dim, h_dims, y_dim):
         super(LinearDecoder, self).__init__()
 
+<<<<<<< HEAD
         self.y_dim = y_dim
 
+=======
+>>>>>>> ef908e263e89418fd09088f49943a69e2a3f9715
         layers = [nn.Linear(x_dim + z_dim, h_dims[0]), nn.ReLU(inplace=True)]
         for i in range(1, len(h_dims)):
             layers.append(nn.Linear(h_dims[i-1], h_dims[i]))
@@ -98,7 +101,11 @@ class LinearDecoder(nn.Module):
         batch_size, n_points, _ = x.size()
 
         # repeat zs in order to be able to concatenate appropriate samples with inputs
+<<<<<<< HEAD
         z = z.unsqueeze(1).repeat(1, n_points, 1)
+=======
+        z = z.unsqueeze(1).repeat(1, num_points, 1)
+>>>>>>> ef908e263e89418fd09088f49943a69e2a3f9715
 
         net_input = torch.cat((
             x.view(batch_size * n_points, -1), 
@@ -106,9 +113,15 @@ class LinearDecoder(nn.Module):
             ), dim=1)
 
         hidden_rep = self.to_hidden(net_input)
+<<<<<<< HEAD
         means = self.to_mu(hidden_rep).view(batch_size, n_points, self.y_dim)
 
         sigmas = self.to_sigma(hidden_rep).view(batch_size, n_points, self.y_dim)
+=======
+        means = self.to_mu(hidden_rep).view(batch_size, n_points, y_dim)
+
+        sigmas = self.to_sigma(hidden_rep).view(batch_size, n_points, y_dim)
+>>>>>>> ef908e263e89418fd09088f49943a69e2a3f9715
         # this as per Emp. evaluation of NP objectives
         # can't seem to find out what the NP paper did exactly
         sigmas = 0.1 + 0.9 * nn.functional.softplus(sigmas)
@@ -140,6 +153,7 @@ class LinearRToDist(nn.Module):
     def forward(self, r):
         hidden_rep = self.to_hidden(r)
         means = self.to_mu(hidden_rep)
+<<<<<<< HEAD
         sigmas = self.to_sigma(hidden_rep)
         # this as per Emp. evaluation of NP objectives
         # can't seem to find out what the NP paper did exactly
@@ -147,6 +161,14 @@ class LinearRToDist(nn.Module):
 
         return means, sigmas
 
+=======
+        sigmas = self.to_sigma(hidden_reps)
+        # this as per Emp. evaluation of NP objectives
+        # can't seem to find out what the NP paper did exactly
+        sigmas = 0.1 + 0.9 * nn.functional.sigmoid(sigmas)
+
+        return means, sigmas
+>>>>>>> ef908e263e89418fd09088f49943a69e2a3f9715
 
 class NeuralProcess(nn.Module):
     # should be a generic np class allowing for different encoders/decoders and combination methods
@@ -185,6 +207,7 @@ class NeuralProcess(nn.Module):
         y_mu, y_sigma = self.decoder(x_target, z_sample)
 
         dist_y = Normal(y_mu, y_sigma)
+<<<<<<< HEAD
 
         return dist_y, dist_context, dist_target
 
@@ -203,3 +226,9 @@ class SimpleNP(nn.Module):
 
     def forward(self, xc, yc, xt, yt):
         return self.np(xc, yc, xt, yt)
+=======
+
+        return dist_y, dist_context, dist_target
+    
+    
+>>>>>>> ef908e263e89418fd09088f49943a69e2a3f9715
