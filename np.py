@@ -109,6 +109,7 @@ class LinearDecoder(nn.Module):
         means = self.to_mu(hidden_rep).view(batch_size, n_points, self.y_dim)
 
         sigmas = self.to_sigma(hidden_rep).view(batch_size, n_points, self.y_dim)
+
         # this as per Emp. evaluation of NP objectives
         # can't seem to find out what the NP paper did exactly
         sigmas = 0.1 + 0.9 * nn.functional.softplus(sigmas)
@@ -140,10 +141,12 @@ class LinearRToDist(nn.Module):
     def forward(self, r):
         hidden_rep = self.to_hidden(r)
         means = self.to_mu(hidden_rep)
+
         sigmas = self.to_sigma(hidden_rep)
+
         # this as per Emp. evaluation of NP objectives
         # can't seem to find out what the NP paper did exactly
-        sigmas = 0.1 + 0.9 * torch.sigmoid(sigmas)
+        sigmas = 0.1 + 0.9 * nn.functional.sigmoid(sigmas)
 
         return means, sigmas
 
