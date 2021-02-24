@@ -1,5 +1,6 @@
 import torch
 import random
+from random import randint
 from torch import nn
 import numpy as np
 from torch.distributions.kl import kl_divergence
@@ -12,7 +13,8 @@ def train(
     print_freq,
     epochs,
     data_loader,
-    n_context
+    n_context_range,
+    n_target_range=None
 ):
     update_count = 0
     losses = []
@@ -22,8 +24,13 @@ def train(
         with tqdm(data_loader, unit="batch") as tepoch:
             neural_process.train()
             for X, y in tepoch:
-                
-                x_context, y_context, x_target, y_target = process_data_to_points(X, y, n_context)
+
+                optimizer.zero_grad()
+
+                n_context = randint(*n_context_range)
+                n_target = randint(*n_target_range) if n_target_range else None
+
+                x_context, y_context, x_target, y_target = process_data_to_points(X, y, n_context, n_target)
                 
                 x_context, y_context = x_context.to(device), y_context.to(device)
                 x_target, y_target = x_target.to(device), y_target.to(device)
@@ -40,7 +47,7 @@ def train(
                 tepoch.set_postfix(loss=loss.item())
 
         losses.append(epoch_loss/len(data_loader))
-        print(f'Epoch {epoch}: average loss per batch {losses[epoch]}\n')
+        print(f'\nEpoch {epoch}: average loss per batch {losses[epoch]}\n')
 
     pass
 

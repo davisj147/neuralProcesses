@@ -44,14 +44,17 @@ class GPData(Dataset):
         self.ys = []
         for i in range(num_samples):
             points = rng.uniform(low=-1, high=1, size=(num_points, 1))
-            self.xs.append(points)
+            x = np.sort(points, axis=0)
+            self.xs.append(x)
+            # print(x)
             
             lengthscale = (max_l - min_l) * rng.random() + min_l
             noise = (max_noise - min_noise) * rng.random() + min_noise
 
-            cov = self.rbf_kernel(points, points, lengthscale, noise)
+            cov = self.rbf_kernel(x, x, lengthscale, noise)
 
-            y = rng.multivariate_normal(points[:, 0], cov)
+            # y = rng.multivariate_normal(np.zeros(num_points), cov)
+            y = rng.multivariate_normal(np.zeros(num_points), cov)
 
             self.ys.append(np.expand_dims(y, 1))
 
@@ -64,7 +67,7 @@ class GPData(Dataset):
 
     def __getitem__(self, index):
         # slightly changed because not sure if it makes sense to choose points as linspace for training
-        return self.xs[index], self.ys[index]
+        return torch.tensor(self.xs[index]).float(), torch.tensor(self.ys[index]).float()
 
     def __len__(self):
         return self.num_samples

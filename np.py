@@ -146,7 +146,7 @@ class LinearRToDist(nn.Module):
 
         # this as per Emp. evaluation of NP objectives
         # can't seem to find out what the NP paper did exactly
-        sigmas = 0.1 + 0.9 * nn.functional.sigmoid(sigmas)
+        sigmas = 0.1 + 0.9 * torch.sigmoid(sigmas)
 
         return means, sigmas
 
