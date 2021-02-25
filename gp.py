@@ -173,3 +173,4 @@ data_train = dataset_train.generate_curves()
 # Test dataset
 dataset_test = GPCurvesReader(batch_size=1, max_num_context=MAX_CONTEXT_POINTS, testing=True)
 data_test = dataset_test.generate_curves()
+"""
