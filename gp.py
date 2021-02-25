@@ -1,3 +1,5 @@
+# converted class GPCurvesReader in tensorflow into that in pytorch 
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
