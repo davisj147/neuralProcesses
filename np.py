@@ -246,7 +246,7 @@ class NeuralProcess(nn.Module):
             # in training for VI actually also encode the target (which the context is a subset of)
             # and use the z sampled from the more informed approximated posterior
             z_target_mu, z_target_sigma = self.encode_to_z_params(x_target, y_target)
-            dist_target = Normal(z_target_mu, z_target_sigma)https://github.com/deepmind/neural-processes/blob/master/attentive_neural_process.ipynb
+            dist_target = Normal(z_target_mu, z_target_sigma)
             z_sample = dist_target.rsample()
 
         else:
