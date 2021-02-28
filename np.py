@@ -252,7 +252,9 @@ class NeuralProcess(nn.Module):
         else:
             # in testing we do not care about the returned context distributions so can just use a dummy
             # however we do need to sample from the context-encoding-parametrised z
-            dist_target=None
+
+            # TODO Does it make sense to put something else in here? How would we calculate validation loss
+            dist_target=dist_context ## Added for validation step - makes KL 0
             z_sample = dist_context.rsample()
 
         y_mu, y_sigma = self.decoder(x_target, z_sample)
