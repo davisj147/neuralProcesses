@@ -26,9 +26,9 @@ parser.add_argument('--z_dim', type=int, default=50,
                     help='Dimension of sampled latent variable')
 parser.add_argument('--h_dim', type=int, default=50,
                     help='Dimension of hidden layer in encoding to gaussian mean/variance network')
-parser.add_argument('--h_dim_enc', type=List[int], default=[50, 50],
+parser.add_argument('--h_dim_enc', type=int, nargs='*', default=[50, 50],
                     help='Dimension(s) of hidden layer(s) in encoder')
-parser.add_argument('--h_dim_dec', type=List[int], default=[50, 50, 50],
+parser.add_argument('--h_dim_dec', type=int, nargs='*', default=[50, 50, 50],
                     help='Dimension(s) of hidden layer(s) in decoder')
 parser.add_argument('--max_epochs', type=int, default=20,
                     help='Maximum number of training epochs')
