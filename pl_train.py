@@ -74,7 +74,7 @@ if __name__ == '__main__':
                              monitor='validation_loss',
                              filename='neural_process-{epoch:02d}-{validation_loss:.2f}'),
                          logger=WandbLogger(project=f'AdvancedML-{args.dataset_type}',
-                                            log_model=True),
+                                            log_model=True, entity='mlmi-aml-neural-process'),
 
                          callbacks=cbs)
 
