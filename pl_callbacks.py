@@ -126,7 +126,6 @@ def context_to_img(x_context, y_context, img_h, img_w):
     x_coords = (x_context[:, 0] * img_w).long()
     y_coords = (x_context[:, 1] * img_h).long()
     img = torch.zeros((channels, img_h, img_w))
-
     img[:, x_coords, y_coords] = y_context[0, :, :].T
 
     return img

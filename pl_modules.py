@@ -130,6 +130,6 @@ def batch_img_to_functional(batch_imgs):
     locations[:, 1] = locations[:, 1] / float(img_h)
 
     xs = locations.repeat(n_batch, 1, 1)
-    ys = batch_imgs.view((n_batch, n_points, channels))
+    ys = batch_imgs.permute(0,2,3,1).view((n_batch, n_points, channels))
 
     return xs, ys

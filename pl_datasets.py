@@ -70,6 +70,6 @@ class NPDataModule(NPBaseDataModule):
             dataset = GPData(**kwargs)
         elif dataset_type == 'mnist':
             dataset = ImgDataset('mnist', **kwargs)
-        elif dataset_type == 'celeba':
+        elif dataset_type == 'celeb':
             dataset = ImgDataset('celeba', **kwargs)
         return dataset
