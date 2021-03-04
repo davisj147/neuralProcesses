@@ -1,4 +1,5 @@
 import glob
+import os
 import numpy as np
 import torch
 import scipy.spatial
@@ -30,6 +31,7 @@ class GPData(Dataset):
         Number of points at which to evaluate f(x) for x in [-1, 1]. <- could also change this later
     """
     def __init__(self, lengthscale_range=(0.1, 2), noise_range=(0.05, 1), num_samples=1000, num_points=100):
+        self.is_img=False
         self.num_samples = num_samples
         self.num_points = num_points
         self.x_dim = 1  # x and y dim are fixed for this dataset.
@@ -95,6 +97,7 @@ class SineData(Dataset):
     """
     def __init__(self, amplitude_range=(-1., 1.), shift_range=(-.5, .5),
                  num_samples=1000, num_points=100):
+        self.is_img = False
         self.amplitude_range = amplitude_range
         self.shift_range = shift_range
         self.num_samples = num_samples
@@ -124,7 +127,34 @@ class SineData(Dataset):
         return self.num_samples
 
 
-def mnist(batch_size=16, size=28, path_to_data='../data'):
+class ImgDataset(Dataset):
+    def __init__(self, data_type, path_to_data='../data', size=32, crop=89):
+        self.is_img = True
+        self.x_dim = 2
+        self.y_dim = 1 if (data_type == 'mnist') else 3 
+        if data_type == 'mnist':
+            self.transforms = transforms.Compose([
+                                transforms.Resize(min(size, 28)),
+                                transforms.ToTensor()
+                            ])
+            self.ds = mnist(path_to_data=path_to_data, transform=self.transforms) 
+        elif data_type == 'celeba':
+            self.transforms = transforms.Compose([
+                                transforms.CenterCrop(crop),
+                                transforms.Resize(min(size, 32)),
+                                transforms.ToTensor()
+                            ])
+            self.ds = CelebADataset(path_to_data=path_to_data, transform=self.transforms)
+
+    def __getitem__(self, index):
+        return self.ds[index]
+
+    def __len__(self):
+        return len(self.ds)
+
+
+
+def mnist(batch_size=16, size=28, path_to_data='../data', transform=None):
     """MNIST dataloader.
 
     Parameters
@@ -137,20 +167,20 @@ def mnist(batch_size=16, size=28, path_to_data='../data'):
     path_to_data : string
         Path to MNIST data files.
     """
-    all_transforms = transforms.Compose([
-        transforms.Resize(size),
-        transforms.ToTensor()
-    ])
+    # all_transforms = transforms.Compose([
+    #     transforms.Resize(size),
+    #     transforms.ToTensor()
+    # ])
 
     train_data = datasets.MNIST(path_to_data, train=True, download=True,
-                                transform=all_transforms)
+                                transform=transform)
     test_data = datasets.MNIST(path_to_data, train=False,
-                               transform=all_transforms)
+                               transform=transform)
 
-    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
+    # train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+    # test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
 
-    return train_loader, test_loader
+    return train_data
 
 
 def celeba(batch_size=16, size=32, crop=89, path_to_data='../celeba_data',
@@ -198,6 +228,8 @@ class CelebADataset(Dataset):
         transform : torchvision.transforms
             Torchvision transforms to be applied to each image.
         """
+        if os.path.isdir(f'{path_to_data}/celeba32/img_align_celeba'):
+            path_to_data = f'{path_to_data}/celeba32/img_align_celeba'
         self.img_paths = glob.glob(path_to_data + '/*.jpg')[::subsample]
         self.transform = transform
 

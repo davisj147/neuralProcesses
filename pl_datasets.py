@@ -3,14 +3,14 @@ import pytorch_lightning as pl
 from torch.utils.data.dataloader import default_collate
 from torch.utils.data import DataLoader
 
-from datasets import GPData, SineData
+from datasets import GPData, SineData, ImgDataset
 
 
 class NPBaseDataModule(pl.LightningDataModule):
     def __init__(self, dataset, num_workers=4, batch_size=4):
         self.dataset = dataset
         self.x_dim = dataset.x_dim
-        self.y_dim = dataset.x_dim
+        self.y_dim = dataset.y_dim
 
         self.num_workers = num_workers
         self.batch_size = batch_size
@@ -32,6 +32,7 @@ class NPBaseDataModule(pl.LightningDataModule):
     def setup(self):
         # TODO split into train and validation set. At the moment, validation data is
         #  the same as training data
+
         self.train_loader = DataLoader(self.dataset, batch_size=self.batch_size,
                                        num_workers=self.num_workers,
                                        shuffle=True)
@@ -56,7 +57,7 @@ class NPBaseDataModule(pl.LightningDataModule):
 
 class NPDataModule(NPBaseDataModule):
     def __init__(self, dataset_type, num_workers=4, batch_size=4, **kwargs):
-        assert dataset_type in ['sine', 'gpdata']
+        assert dataset_type in ['sine', 'gpdata', 'mnist', 'celeb']
         self.dataset_type = dataset_type
         dataset = self._get_dataset(dataset_type, **kwargs)
 
@@ -67,4 +68,8 @@ class NPDataModule(NPBaseDataModule):
             dataset = SineData(**kwargs)
         elif dataset_type == 'gpdata':
             dataset = GPData(**kwargs)
+        elif dataset_type == 'mnist':
+            dataset = ImgDataset('mnist', **kwargs)
+        elif dataset_type == 'celeba':
+            dataset = ImgDataset('celeba', **kwargs)
         return dataset
