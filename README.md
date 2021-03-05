@@ -1,1 +1,1 @@
-# AML Course Project: Conditional Neural Processes
+# AML Course Project: Neural Processes
