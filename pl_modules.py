@@ -16,8 +16,8 @@ class PLNeuralProcess(pl.LightningModule):
         self.y_dim = y_dim
         self.num_context = num_context
         self.num_target = num_target
-        self.n_context_range = (num_context, num_context)
-        self.n_target_range = (num_context+num_target, num_context+num_target)
+        self.n_context_range = (3, num_context)
+        self.n_target_range = (num_context, num_context+num_target)
         self.r_dim = r_dim
         self.z_dim = z_dim
         self.h_dim = h_dim
@@ -125,8 +125,7 @@ def batch_img_to_functional(batch_imgs):
     locations = torch.ones((img_w, img_h)).nonzero(as_tuple=False).float()
 
     # normalise to [0, 1]
-    locations[:, 0] = locations[:, 0] / float(
-        img_w)  # might have accidentally switched h and w
+    locations[:, 0] = locations[:, 0] / float(img_w)  # might have accidentally switched h and w
     locations[:, 1] = locations[:, 1] / float(img_h)
 
     xs = locations.repeat(n_batch, 1, 1)
