@@ -260,7 +260,7 @@ class NeuralProcess(nn.Module):
         y_mu, y_sigma = self.decoder(x_target, z_sample)
 
         dist_y = Normal(y_mu, y_sigma)
-
+ 
         return dist_y, dist_context, dist_target
 
 
