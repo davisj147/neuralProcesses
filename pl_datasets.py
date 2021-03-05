@@ -60,6 +60,7 @@ class NPDataModule(NPBaseDataModule):
     def __init__(self, dataset_type, num_workers=4, batch_size=4, **kwargs):
         assert dataset_type in ['sine', 'gpdata', 'mnist', 'celeb']
         self.dataset_type = dataset_type
+        self.batch_size = batch_size
         dataset = self._get_dataset(dataset_type, **kwargs)
 
         super().__init__(dataset=dataset, num_workers=num_workers, batch_size=batch_size)
@@ -71,9 +72,8 @@ class NPDataModule(NPBaseDataModule):
         elif dataset_type == 'gpdata':
             dataset = GPData(**kwargs)
         elif dataset_type == 'mnist':
-            dataset = ImgDataset('mnist', batch_size, **kwargs)
+            dataset = ImgDataset('mnist', self.batch_size, **kwargs)
         elif dataset_type == 'celeb':
-            dataset = ImgDataset('celeb', batch_size, **kwargs)
+            dataset = ImgDataset('celeb', self.batch_size, **kwargs)
 
         return dataset
-
