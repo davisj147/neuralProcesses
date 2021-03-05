@@ -59,6 +59,7 @@ class PLNeuralProcess(pl.LightningModule):
                                                        x_target, y_target)
 
         loss = self._loss(dist_y, y_target, dist_context, dist_target)
+        # loss = 1
 
         return {'loss': loss}
 
@@ -122,13 +123,12 @@ def batch_img_to_functional(batch_imgs):
     n_points = img_w * img_h
 
     # ugly way to make an array of indices
-    locations = torch.ones((img_w, img_h)).nonzero(as_tuple=False).float()
-
+    locations = torch.ones((img_w, img_h)).nonzero(as_tuple=False).type_as(batch_imgs)
     # normalise to [0, 1]
     locations[:, 0] = locations[:, 0] / float(img_w)  # might have accidentally switched h and w
     locations[:, 1] = locations[:, 1] / float(img_h)
 
     xs = locations.repeat(n_batch, 1, 1)
-    ys = batch_imgs.view((n_batch, n_points, channels))
+    ys = batch_imgs.permute(0,2,3,1).view((n_batch, n_points, channels))
 
     return xs, ys
