@@ -1,9 +1,9 @@
 import pytorch_lightning as pl
 from torch.distributions import kl_divergence
 
-from np_kai import NeuralProcess
+from np import NeuralProcess
 import torch
-from np_kai import SimpleNP
+from np import SimpleNP
 from random import randint
 import numpy as np
 
