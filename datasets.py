@@ -148,6 +148,32 @@ class ImgDataset(Dataset):
     def __len__(self):
         return len(self.ds)
 
+class test_ImgDataset(Dataset):
+    def __init__(self, dataset_type, batch_size, path_to_data='../data'):
+        self.batch_size = batch_size
+        self.is_img = True
+        self.img_size = 28 if (dataset_type == 'mnist') else 32 
+        self.x_dim = 2
+        self.y_dim = 1 if (dataset_type == 'mnist') else 3 
+        if dataset_type == 'mnist':
+            self.transforms = transforms.Compose([
+                                transforms.Resize(self.img_size),
+                                transforms.ToTensor()
+                            ])
+            self.ds = datasets.MNIST(path_to_data, train=False, transform=self.transforms)
+        elif dataset_type == 'celeb':
+            self.transforms = transforms.Compose([
+                                transforms.CenterCrop(89),
+                                transforms.Resize(self.img_size),
+                                transforms.ToTensor()
+                            ])
+            self.t_ds = CelebADataset(path_to_data, split="test", download=True, transform=self.transforms)
+
+    def __getitem__(self, index):
+        return self.ds[index]
+
+    def __len__(self):
+        return len(self.ds)
 
 
 def mnist(batch_size=16, path_to_data='../data', transform=None):
@@ -167,8 +193,8 @@ def mnist(batch_size=16, path_to_data='../data', transform=None):
 
     train_data = datasets.MNIST(path_to_data, train=True, download=True,
                                 transform=transform)
-    test_data = datasets.MNIST(path_to_data, train=False,
-                               transform=transform)
+    # test_data = datasets.MNIST(path_to_data, train=False,
+                               #transform=transform)
 
     # train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     # test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
@@ -195,7 +221,7 @@ def celeba(batch_size=16, path_to_data='../celeba_data', transform=None):
     #])
 
     celeba_data = CelebADataset(path_to_data, split="train", download=True,
-                                transform=transform)
+                               transform=transform)
     #celeba_loader = DataLoader(celeba_data, batch_size=batch_size,
     #                           shuffle=shuffle)
     return celeba_data
@@ -214,8 +240,8 @@ class CelebADataset(Dataset):
         transform : torchvision.transforms
             Torchvision transforms to be applied to each image.
         """
-        if os.path.isdir(f'{path_to_data}/celeba32/img_align_celeba'):
-            path_to_data = f'{path_to_data}/celeba32/img_align_celeba'
+        if os.path.isdir(f'{path_to_data}/img_align_celeba'):
+            path_to_data = f'{path_to_data}/img_align_celeba'
         self.img_paths = glob.glob(path_to_data + '/*.jpg')[::subsample]
         self.transform = transform
 
