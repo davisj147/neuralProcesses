@@ -176,7 +176,7 @@ def mnist(batch_size=16, path_to_data='../data', transform=None):
     return train_data
 
 
-def celeba(batch_size=16, path_to_data='../celeba_data', shuffle=True):
+def celeba(batch_size=16, path_to_data='../celeba_data', transform=None):
     """CelebA dataloader.
     Parameters
     ----------
@@ -194,7 +194,7 @@ def celeba(batch_size=16, path_to_data='../celeba_data', shuffle=True):
     #    transforms.ToTensor()
     #])
 
-    celeba_data = CelebADataset(path_to_data,
+    celeba_data = datasets.CelebADataset(path_to_data, split="train", download=True,
                                 transform=transform)
     #celeba_loader = DataLoader(celeba_data, batch_size=batch_size,
     #                           shuffle=shuffle)
