@@ -1,6 +1,7 @@
 from pytorch_lightning.callbacks.base import Callback
 import wandb
 
+import random
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -37,11 +38,8 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
         for i in range(6):
             z_sample = torch.randn((1, pl_module.z_dim)).to(pl_module.device)
             mu, _ = pl_module.model.decoder(x_target, z_sample)
-            img_mu = mu.reshape((channels, img_h, img_w)).detach().cpu()
+            img_mu = mu.permute(0,2,1).reshape((channels, img_h, img_w)).detach().cpu()
             samples.append(img_mu)
-
-        print(type(samples))
-        print(type(samples[0]))
         
         grid = make_grid(samples, nrow=3, pad_value=1.)
         plt.imshow(grid.permute(1, 2, 0).numpy())
@@ -82,25 +80,31 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
     def _visualise_posterior_img(self, trainer, pl_module):
         x, y = next(iter(trainer.datamodule.val_dataloader()))
         _, channels, img_h, img_w = x.shape
-        x_context, y_context, _, _ = process_data_to_points(x[0:1], y[0:1],
-                                                            pl_module.num_context)
-        # create target points for the full image
-        xs, _ = batch_img_to_functional(x)
-        x_target = xs[0, :, :].unsqueeze(0)  
+        img_id = random.randint(1, x.shape[0])
+        imgs = []
+        for n_context in [8, 32, 64, 256, 28*28]:
+            # x_context, y_context, _, _ = process_data_to_points(x[(i-1):i], y[(i-1):i],
+            #                                                     pl_module.num_context)
+            x_context, y_context, _, _ = process_data_to_points(x[(img_id-1):img_id], y[(img_id-1):img_id],
+                                                                n_context)
+            # create target points for the full image
+            xs, _ = batch_img_to_functional(x)
+            x_target = xs[0, :, :].unsqueeze(0)  
 
-        pl_module.eval()
+            pl_module.eval()
 
-        imgs = [context_to_img(x_context, y_context, img_h, img_w)]
-        for i in range(5):
-            # Neural process returns distribution over y_target
-            p_y_pred, _, _ = pl_module.model(x_context.to(pl_module.device),
-                                                y_context.to(pl_module.device),
-                                                x_target.to(pl_module.device), None)
-            # Extract mean of distribution
-            mu = p_y_pred.loc.detach()
-            img_mu = mu.reshape((channels, img_h, img_w)).detach().cpu()
-            imgs.append(img_mu)
-        grid = make_grid(imgs, nrow=3, pad_value=1.)
+            # imgs = [context_to_img(x_context, y_context, img_h, img_w)]
+            imgs.append(context_to_img(x_context, y_context, img_h, img_w))
+            for i in range(5):
+                # Neural process returns distribution over y_target
+                p_y_pred, _, _ = pl_module.model(x_context.to(pl_module.device),
+                                                    y_context.to(pl_module.device),
+                                                    x_target.to(pl_module.device), None)
+                # Extract mean of distribution
+                mu = p_y_pred.loc.detach()
+                img_mu = mu.permute(0,2,1).reshape((channels, img_h, img_w)).detach().cpu()
+                imgs.append(img_mu)
+        grid = make_grid(imgs, nrow=6, pad_value=1.)
         plt.imshow(grid.permute(1, 2, 0).numpy())
 
         wandb.log({"posterior_samples": plt})
