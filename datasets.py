@@ -194,7 +194,7 @@ def celeba(batch_size=16, path_to_data='../celeba_data', transform=None):
     #    transforms.ToTensor()
     #])
 
-    celeba_data = datasets.CelebADataset(path_to_data, split="train", download=True,
+    celeba_data = CelebADataset(path_to_data, split="train", download=True,
                                 transform=transform)
     #celeba_loader = DataLoader(celeba_data, batch_size=batch_size,
     #                           shuffle=shuffle)
