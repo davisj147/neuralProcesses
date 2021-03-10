@@ -9,23 +9,22 @@ import numpy as np
 
 
 class PLNeuralProcess(pl.LightningModule):
-    def __init__(self, x_dim, y_dim, img_size, lr=1e-3, num_context=8, num_target=16, r_dim=50, z_dim=50,
+    def __init__(self, x_dim, y_dim, lr=1e-3, num_context=8, num_target=16, r_dim=50, z_dim=50,
                  h_dim=50, h_dim_enc=[50, 50], h_dim_dec=[50, 50, 50]):
         super(PLNeuralProcess, self).__init__()
         self.x_dim = x_dim
         self.y_dim = y_dim
-        self.img_size = img_size
         self.num_context = num_context
         self.num_target = num_target
-        self.n_context_range = (3, num_context) ##
-        self.n_target_range = (3, num_context+num_target) ##
+        self.n_context_range = (3, num_context)
+        self.n_target_range = (num_context, num_context+num_target)
         self.r_dim = r_dim
         self.z_dim = z_dim
         self.h_dim = h_dim
         self.h_dim_enc = h_dim_enc
         self.h_dim_dec = h_dim_dec
-        self.lr = lr
 
+        self.lr = lr
         self.save_hyperparameters()
         self.model = self._build_model()
 
@@ -71,12 +70,25 @@ class PLNeuralProcess(pl.LightningModule):
         return {'loss': outputs['loss']}
 
     def validation_step(self, batch, batch_idx):
-        return self.training_step(batch, batch_idx)
+        X, y = batch
+
+        n_context = 100
+        n_target = 0
+
+        x_context, y_context, x_target, y_target = process_data_to_points(X, y, n_context,
+                                                                          n_target)
+        dist_y, dist_context, dist_target = self.model(x_context, y_context,
+                                                       x_target, y_target)
+
+        loss = self._loss(dist_y, y_target, dist_context, dist_target)
+        # loss = 1
+
+        return {'loss': loss}
 
     def validation_step_end(self, outputs):
         self.log('validation_loss', outputs['loss'], on_epoch=True, on_step=False,
                  prog_bar=True)
-
+    
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.parameters()),
                                      lr=self.lr,
@@ -126,11 +138,10 @@ def batch_img_to_functional(batch_imgs):
     # ugly way to make an array of indices
     locations = torch.ones((img_w, img_h)).nonzero(as_tuple=False).type_as(batch_imgs)
     # normalise to [0, 1]
-    locations[:, 0] = locations[:, 0] / float(
-        img_w)  # might have accidentally switched h and w
+    locations[:, 0] = locations[:, 0] / float(img_w)  # might have accidentally switched h and w
     locations[:, 1] = locations[:, 1] / float(img_h)
 
     xs = locations.repeat(n_batch, 1, 1)
-    ys = batch_imgs.view((n_batch, n_points, channels))
+    ys = batch_imgs.permute(0,2,3,1).view((n_batch, n_points, channels))
 
     return xs, ys
