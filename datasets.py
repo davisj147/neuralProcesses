@@ -167,7 +167,7 @@ class test_ImgDataset(Dataset):
                                 transforms.Resize(self.img_size),
                                 transforms.ToTensor()
                             ])
-            self.t_ds = CelebADataset(path_to_data, split="test", download=True, transform=self.transforms)
+            self.ds = CelebADataset(path_to_data,subsample=1, transform=self.transforms)
 
     def __getitem__(self, index):
         return self.ds[index]
@@ -220,7 +220,7 @@ def celeba(batch_size=16, path_to_data='../celeba_data', transform=None):
     #    transforms.ToTensor()
     #])
 
-    celeba_data = CelebADataset(path_to_data, split="train", download=True,
+    celeba_data = CelebADataset(path_to_data,subsample=1,
                                transform=transform)
     #celeba_loader = DataLoader(celeba_data, batch_size=batch_size,
     #                           shuffle=shuffle)
@@ -240,8 +240,8 @@ class CelebADataset(Dataset):
         transform : torchvision.transforms
             Torchvision transforms to be applied to each image.
         """
-        if os.path.isdir(f'{path_to_data}/img_align_celeba'):
-            path_to_data = f'{path_to_data}/img_align_celeba'
+        if os.path.isdir(f'../celebA/img_align_celeba'):
+            path_to_data = f'../celebA/img_align_celeba'
         self.img_paths = glob.glob(path_to_data + '/*.jpg')[::subsample]
         self.transform = transform
 
