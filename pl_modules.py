@@ -72,8 +72,8 @@ class PLNeuralProcess(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         X, y = batch
 
-        n_context = 100
-        n_target = 0
+        n_context = 100 #arbitrary number, e.g. 3,10,50,100,784,1024
+        n_target = 1024 - n_context #large number
 
         x_context, y_context, x_target, y_target = process_data_to_points(X, y, n_context,
                                                                           n_target)
