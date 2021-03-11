@@ -2,13 +2,15 @@ import pytorch_lightning as pl
 
 from torch.utils.data.dataloader import default_collate
 from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
 
-from datasets import GPData, SineData, ImgDataset
+from datasets import GPData, SineData, ImgDataset, test_ImgDataset
 
 
 class NPBaseDataModule(pl.LightningDataModule):
-    def __init__(self, dataset, num_workers=4, batch_size=4):
+    def __init__(self, dataset, test_dataset, num_workers=4, batch_size=4):
         self.dataset = dataset
+        self.test_dataset = test_dataset
         self.x_dim = dataset.x_dim
         self.y_dim = dataset.y_dim
 
@@ -36,7 +38,7 @@ class NPBaseDataModule(pl.LightningDataModule):
         self.train_loader = DataLoader(self.dataset, batch_size=self.batch_size,
                                        num_workers=self.num_workers,
                                        shuffle=True)
-        self.val_loader = DataLoader(self.dataset, batch_size=self.batch_size,
+        self.val_loader = DataLoader(self.test_dataset, batch_size=self.batch_size,
                                      num_workers=self.num_workers,
                                      shuffle=False)
 
@@ -46,9 +48,21 @@ class NPBaseDataModule(pl.LightningDataModule):
     def val_dataloader(self):
         return self.val_loader
 
+    """
     def test_dataloader(self):
-        # No test set
-        raise NotImplementedError
+        img_size = 28 if (self.dataset == 'mnist') else 32 
+        if self.dataset == 'mnist':
+            transform = transforms.Compose([
+                                transforms.Resize(img_size),
+                                transforms.ToTensor()
+                                ])
+            test_data = datasets.MNIST(path_to_data='../data', train=False,
+                                transform=transform)
+            test_loader = DataLoader(test_data, batch_size=self.batch_size, shuffle=True)
+        elif self.dataset == 'celeb':
+            raise NotImplementedError
+      return test_loader
+    """
 
     def show_batch(self):
         # Helper function to visualize a batch of data, but unnecessary for training
@@ -59,17 +73,29 @@ class NPDataModule(NPBaseDataModule):
     def __init__(self, dataset_type, num_workers=4, batch_size=4, **kwargs):
         assert dataset_type in ['sine', 'gpdata', 'mnist', 'celeb']
         self.dataset_type = dataset_type
-        dataset = self._get_dataset(dataset_type, **kwargs)
+        dataset = self._get_dataset(dataset_type, batch_size, **kwargs)
+        test_dataset = self._get_test_dataset(dataset_type, batch_size, **kwargs)
 
-        super().__init__(dataset=dataset, num_workers=num_workers, batch_size=batch_size)
+        super().__init__(dataset=dataset, test_dataset=test_dataset, num_workers=num_workers, batch_size=batch_size)
 
-    def _get_dataset(self, dataset_type, **kwargs):
+    def _get_dataset(self, dataset_type, batch_size, **kwargs):
         if dataset_type == 'sine':
             dataset = SineData(**kwargs)
         elif dataset_type == 'gpdata':
             dataset = GPData(**kwargs)
         elif dataset_type == 'mnist':
-            dataset = ImgDataset('mnist', **kwargs)
+            dataset = ImgDataset('mnist', batch_size, **kwargs)
         elif dataset_type == 'celeb':
-            dataset = ImgDataset('celeba', **kwargs)
+            dataset = ImgDataset('celeb', batch_size, **kwargs)
         return dataset
+
+    def _get_test_dataset(self, dataset_type, batch_size, **kwargs):
+        if dataset_type == 'sine':
+            test_dataset = SineData(**kwargs)
+        elif dataset_type == 'gpdata':
+            test_dataset = GPData(**kwargs)
+        elif dataset_type == 'mnist':
+            test_dataset = test_ImgDataset('mnist', batch_size, **kwargs)
+        elif dataset_type == 'celeb':
+            test_dataset = test_ImgDataset('celeb', batch_size, **kwargs)
+        return test_dataset 
