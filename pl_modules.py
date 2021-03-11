@@ -70,12 +70,25 @@ class PLNeuralProcess(pl.LightningModule):
         return {'loss': outputs['loss']}
 
     def validation_step(self, batch, batch_idx):
-        return self.training_step(batch, batch_idx)
+        X, y = batch
+
+        n_context = 100 #arbitrary number
+        n_target = 1024-n_context #max-n_context
+
+        x_context, y_context, x_target, y_target = process_data_to_points(X, y, n_context,
+                                                                          n_target)
+        dist_y, dist_context, dist_target = self.model(x_context, y_context,
+                                                       x_target, y_target)
+
+        loss = self._loss(dist_y, y_target, dist_context, dist_target)
+        # loss = 1
+
+        return {'loss': loss}
 
     def validation_step_end(self, outputs):
         self.log('validation_loss', outputs['loss'], on_epoch=True, on_step=False,
                  prog_bar=True)
-
+    
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.parameters()),
                                      lr=self.lr,
