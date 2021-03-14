@@ -28,6 +28,27 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
         
         wandb.log({"prior_samples": plt})
 
+    
+    def _visualise_prior_img(self, trainer, pl_module):
+        x, y = next(iter(trainer.datamodule.val_dataloader()))
+        _, channels, img_h, img_w = x.shape
+        xs, _ = batch_img_to_functional(x)
+        x_target = xs[0, :, :].unsqueeze(0).to(pl_module.device)
+
+        samples = []
+        for i in range(6):
+            z_sample = torch.randn((1, pl_module.z_dim)).to(pl_module.device)
+            mu, _ = pl_module.model.decoder(x_target, z_sample)
+            img_mu = mu.permute(0,2,1).reshape((channels, img_h, img_w)).detach().cpu()
+            samples.append(img_mu)
+        
+        grid = make_grid(samples, nrow=3, pad_value=1.)
+        plt.imshow(grid.permute(1, 2, 0).numpy())
+            # plt.xlim(-1, 1)
+        
+        wandb.log({"prior_samples": plt})
+
+    
     def _visualise_posterior_1d(self, trainer, pl_module):
          # Visualize samples from posterior
         # Extract a batch from data_loader
