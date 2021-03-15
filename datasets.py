@@ -42,8 +42,7 @@ class GPData(Dataset):
         self.xs = []
         self.ys = []
         for i in range(num_samples):
-            points = rng.uniform(low=-1, high=1, size=(num_points, 1))
-            x = np.sort(points, axis=0)
+            x = torch.linspace(-1, 1, num_points).unsqueeze(1) 
             self.xs.append(x)
             # print(x)
             

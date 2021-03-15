@@ -75,7 +75,7 @@ if __name__ == '__main__':
                              filename='neural_process-{epoch:02d}-{validation_loss:.2f}'),
                          logger=WandbLogger(project=f'AdvancedML-{args.dataset_type}',
                                             log_model=True),
-
+                         auto_lr_find=args.tune_lr,
                          callbacks=cbs)
 
     # ------------------------

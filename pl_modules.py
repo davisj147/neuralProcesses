@@ -94,7 +94,7 @@ class PLNeuralProcess(pl.LightningModule):
                                      lr=self.lr,
                                      weight_decay=0)
 
-        return [optimizer]
+        return optimizer
 
     @staticmethod
     def _loss(dist_y, y_target, dist_context, dist_target):
