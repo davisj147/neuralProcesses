@@ -52,30 +52,35 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
         # Extract a batch from data_loader
         # Use batch to create random set of context points
         x, y = next(iter(trainer.datamodule.val_dataloader()))
-        x_context, y_context, _, _ = process_data_to_points(x[0:1], y[0:1],
-                                                            pl_module.num_context,
-                                                            pl_module.num_target + pl_module.num_context)
-
-        # Create a set of target points corresponding to entire [-pi, pi] range
-        x_target = torch.Tensor(np.linspace(torch.min(x_context).item(), torch.max(x_context).item(), 100))
-        # x_target = torch.Tensor(np.linspace(-pi, pi, 100))
-        x_target = x_target.unsqueeze(1).unsqueeze(0)
-
+        sample_id = random.randint(1, x.shape[0])
         pl_module.eval()
 
-        for i in range(64):
-            # Neural process returns distribution over y_target
-            p_y_pred, _, _ = pl_module.model(x_context.to(pl_module.device),
-                                                y_context.to(pl_module.device),
-                                                x_target.to(pl_module.device), None)
-            # Extract mean of distribution
-            mu = p_y_pred.loc.detach()
-            plt.plot(x_target.cpu().numpy()[0], mu.cpu().numpy()[0],
-                        alpha=0.05, c='b')
+        x, y = x[(sample_id-1):sample_id], y[(sample_id-1):sample_id]
 
-        plt.scatter(x_context[0].cpu().numpy(), y_context[0].cpu().numpy(), c='k')
+        fig, axs = plt.subplots(2,2, figsize=(16, 10))
+        flat_axs = axs.flatten()
+        for j, n_context in enumerate([4, 8, 16, 64]):
 
-        wandb.log({"posterior_samples": plt})
+            x_context, y_context, _, _ = process_data_to_points(x, y, n_context)
+
+            # Create a set of target points corresponding to entire [-pi, pi] range
+            x_target = torch.Tensor(np.linspace(torch.min(x).item(), torch.max(x).item(), 100))
+            x_target = x_target.unsqueeze(1).unsqueeze(0)
+            for i in range(32):
+                # Neural process returns distribution over y_target
+                p_y_pred, _, _ = pl_module.model(x_context.to(pl_module.device),
+                                                    y_context.to(pl_module.device),
+                                                    x_target.to(pl_module.device), None)
+                # Extract mean of distribution
+                mu = p_y_pred.loc.detach()
+                flat_axs[j].plot(x_target.cpu().numpy()[0], mu.cpu().numpy()[0],
+                            alpha=0.1, c='b')
+                flat_axs[j].plot(x.cpu().numpy()[0], y.cpu().numpy()[0],
+                            alpha=0.7, c='r')
+
+            flat_axs[j].scatter(x_context[0].cpu().numpy(), y_context[0].cpu().numpy(), c='k')
+
+        wandb.log({"posterior_samples": fig})
 
     def _visualise_posterior_img(self, trainer, pl_module):
         x, y = next(iter(trainer.datamodule.val_dataloader()))
