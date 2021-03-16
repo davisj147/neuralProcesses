@@ -42,33 +42,38 @@ class GPData(Dataset):
         self.y_dim = 1
 
         assert(kernel in ['rbf', 'periodic', 'matern'])
+        self.kernel=kernel
 
-        min_l, max_l = lengthscale_range
-        min_sigma, max_sigma = sigma_range
-        min_p, max_p = period_range
+        self.min_l, self.max_l = lengthscale_range
+        self.min_sigma, self.max_sigma = sigma_range
+        self.min_p, self.max_p = period_range
 
         # Generate data
         rng = np.random.default_rng()
         self.xs = []
         self.ys = []
         for i in range(num_samples):
-
-            x = np.linspace(-1, 1, num_points).reshape((-1,1))
+            x, y, _, _, _ = self.generate_gp_sample(rng)
             self.xs.append(x)
-            
-            lengthscale = (max_l - min_l) * rng.random() + min_l
-            sigma = (max_sigma - min_sigma) * rng.random() + min_sigma
-
-            if kernel == 'rbf':
-                cov = self.rbf_kernel(x, x, lengthscale, sigma)
-            if kernel == 'matern':
-                cov = self.matern_kernel(x, x, lengthscale, sigma)
-            if kernel == 'periodic':
-                period = (max_p - min_p) * rng.random() + min_p
-                cov = self.periodic_kernel(x, x, lengthscale, sigma, period)
-            y = rng.multivariate_normal(np.zeros(num_points), cov)
-
             self.ys.append(np.expand_dims(y, 1))
+    
+    def generate_gp_sample(self, rng):
+        period=0
+        x = np.linspace(-1, 1, self.num_points).reshape((-1,1))        
+        lengthscale = (self.max_l - self.min_l) * rng.random() + self.min_l
+        sigma = (self.max_sigma - self.min_sigma) * rng.random() + self.min_sigma
+
+        if self.kernel == 'rbf':
+            cov = self.rbf_kernel(x, x, lengthscale, sigma)
+        if self.kernel == 'matern':
+            cov = self.matern_kernel(x, x, lengthscale, sigma)
+        if self.kernel == 'periodic':
+            period = (self.max_p - self.min_p) * rng.random() + self.min_p
+            cov = self.periodic_kernel(x, x, lengthscale, sigma, period)
+        y = rng.multivariate_normal(np.zeros(self.num_points), cov)
+
+        return x, y, lengthscale, sigma, period
+
 
     # will hopefully be able to add other kernels
     def rbf_kernel(self, xa, xb, lengthscale, sigma):
