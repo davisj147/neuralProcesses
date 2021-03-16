@@ -50,13 +50,13 @@ class LinearEncoder(nn.Module):
         batch_size, n_points, _ = x.size()
 
         net_input = torch.cat((
-            x.view(batch_size * n_points, -1), 
-            y.view(batch_size * n_points, -1)
+            x.reshape(batch_size * n_points, -1),
+            y.reshape(batch_size * n_points, -1)
             ), dim=1)
 
         rs = self.to_r(net_input)
 
-        return rs.view(batch_size, n_points, -1)
+        return rs.reshape(batch_size, n_points, -1)
         
 
 class LinearDecoder(nn.Module):
@@ -250,6 +250,7 @@ class NeuralProcess(nn.Module):
             z_sample = dist_target.rsample()
 
         else:
+            print("Evaluating")
             # in testing we do not care about the returned context distributions so can just use a dummy
             # however we do need to sample from the context-encoding-parametrised z
 

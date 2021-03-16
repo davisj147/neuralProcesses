@@ -9,15 +9,17 @@ import numpy as np
 
 
 class PLNeuralProcess(pl.LightningModule):
-    def __init__(self, x_dim, y_dim, lr=1e-3, num_context=8, num_target=16, r_dim=50, z_dim=50,
+    def __init__(self, x_dim, y_dim, lr=1e-3,
+                 # num_context=8, num_target=16,
+                 r_dim=50, z_dim=50,
                  h_dim=50, h_dim_enc=[50, 50], h_dim_dec=[50, 50, 50]):
         super(PLNeuralProcess, self).__init__()
         self.x_dim = x_dim
         self.y_dim = y_dim
-        self.num_context = num_context
-        self.num_target = num_target
-        self.n_context_range = (3, num_context)
-        self.n_target_range = (num_context, num_context+num_target)
+        # self.num_context = num_context
+        # self.num_target = num_target
+        # self.n_context_range = (3, num_context)
+        # self.n_target_range = (num_context, num_context+num_target)
         self.r_dim = r_dim
         self.z_dim = z_dim
         self.h_dim = h_dim
@@ -28,9 +30,13 @@ class PLNeuralProcess(pl.LightningModule):
         self.save_hyperparameters()
         self.model = self._build_model()
 
-    # def forward(self, x):
-    #     x = self.model(x)
-    #     return x
+    def forward(self, batch):
+
+        dist_y, dist_context, dist_target = self.model(batch['context_points_x'],
+                                                       batch['context_points_y'],
+                                                       batch['target_points_x'],
+                                                       batch['target_points_y'])
+        return dist_y, dist_context, dist_target
 
     # def predict(self, images, threshold=None):
     #     self.eval()
@@ -48,19 +54,9 @@ class PLNeuralProcess(pl.LightningModule):
         return neuralprocess
 
     def training_step(self, batch, batch_idx):
-        X, y = batch
 
-        n_context = randint(*self.n_context_range)
-        n_target = randint(*self.n_target_range)
-
-        x_context, y_context, x_target, y_target = process_data_to_points(X, y, n_context,
-                                                                          n_target)
-        dist_y, dist_context, dist_target = self.model(x_context, y_context,
-                                                       x_target, y_target)
-
-        loss = self._loss(dist_y, y_target, dist_context, dist_target)
-        # loss = 1
-
+        dist_y, dist_context, dist_target = self(batch)
+        loss = self._loss(dist_y, batch['target_points_y'], dist_context, dist_target)
         return {'loss': loss}
 
     def training_step_end(self, outputs):
@@ -70,20 +66,8 @@ class PLNeuralProcess(pl.LightningModule):
         return {'loss': outputs['loss']}
 
     def validation_step(self, batch, batch_idx):
-        X, y = batch
-
-        n_context = 100 #arbitrary number
-        n_target = 1024-n_context #max-n_context
-
-        x_context, y_context, x_target, y_target = process_data_to_points(X, y, n_context,
-                                                                          n_target)
-        dist_y, dist_context, dist_target = self.model(x_context, y_context,
-                                                       x_target, y_target)
-
-        loss = self._loss(dist_y, y_target, dist_context, dist_target)
-        # loss = 1
-
-        return {'loss': loss}
+        return {'loss':1}
+        # return self.training_step(batch, batch_idx)
 
     def validation_step_end(self, outputs):
         self.log('validation_loss', outputs['loss'], on_epoch=True, on_step=False,

@@ -90,7 +90,7 @@ if __name__ == '__main__':
     trainer = pl.Trainer(gpus=0 if args.cpu or not torch.cuda.is_available() else 1,
                          max_epochs=args.max_epochs,
                          checkpoint_callback=ModelCheckpoint(
-                             monitor='validation_loss',
+                             monitor='training_loss',
                              filename='neural_process-{epoch:02d}-{validation_loss:.2f}'),
                          logger=WandbLogger(project=f'AdvancedML-{args.dataset_type}',
                                             log_model=True),

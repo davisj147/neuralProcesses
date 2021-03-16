@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 from datasets import GPData, SineData, ImgDataset, test_ImgDataset
-
+import matplotlib.pyplot as plt
 
 class NPBaseDataModule(pl.LightningDataModule):
     def __init__(self, dataset, test_dataset, num_workers=4, batch_size=4):
@@ -98,4 +98,17 @@ class NPDataModule(NPBaseDataModule):
             test_dataset = test_ImgDataset('mnist', batch_size, **kwargs)
         elif dataset_type == 'celeb':
             test_dataset = test_ImgDataset('celeb', batch_size, **kwargs)
-        return test_dataset 
+        return test_dataset
+
+    def show_batch(self):
+        if self.dataset_type == 'gpdata':
+            batch = next(iter(self.train_dataloader()))
+            plt.scatter(batch['target_points_only_x'].cpu().numpy(),
+                        batch['target_points_only_y'].cpu().numpy(),
+                        c='#1f77b4')
+            plt.scatter(batch['context_points_x'].cpu().numpy(),
+                        batch['context_points_y'].cpu().numpy(),
+                        c='#ff7f0e')
+            return plt
+        else:
+            raise NotImplementedError
