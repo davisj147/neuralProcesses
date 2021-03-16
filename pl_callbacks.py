@@ -31,6 +31,7 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
         
         wandb.log({"prior_samples": plt})
 
+    
     def _visualise_prior_img(self, trainer, pl_module):
         x, y = next(iter(trainer.datamodule.val_dataloader()))
         _, channels, img_h, img_w = x.shape
@@ -50,6 +51,8 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
         
         wandb.log({"prior_samples": plt})
 
+    
+    
     def _visualise_posterior_1d(self, trainer, pl_module):
          # Visualize samples from posterior
         # Extract a batch from data_loader

@@ -92,10 +92,10 @@ if __name__ == '__main__':
                          checkpoint_callback=ModelCheckpoint(
                              monitor='validation_loss',
                              filename='neural_process-{epoch:02d}-{validation_loss:.2f}'),
-                             logger=WandbLogger(project=f'AdvancedML-{args.dataset_type}',
-                                            log_model=True,), #entity='mlmi-aml-neural-process'),
-                             auto_lr_find=args.tune_lr,
-                             callbacks=cbs)
+                         logger=WandbLogger(project=f'AdvancedML-{args.dataset_type}',
+                                            log_model=True),
+                         auto_lr_find=args.tune_lr,
+                         callbacks=cbs)
 
     # ------------------------
     # 5 START TRAINING
