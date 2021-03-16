@@ -41,13 +41,13 @@ parser.add_argument('--tune-lr', action='store_true',
 parser.add_argument('--gp-kernel', type=str, default='rbf',
                     choices=['rbf', 'matern', 'periodic'],
                     help='kernel to use for the gaussian process dataset generation')
-parser.add_argument('--n-samples', type=int, default=2000,
+parser.add_argument('--n-samples', type=int, default=1000,
                     help='number of samples for sine or gp dataset generation')
 parser.add_argument('--n-points', type=int, default=100,
                     help='number of points per sample samples for sine or gp dataset generation')
-parser.add_argument('--lengthscale-range', type=float, nargs='*', default=[0.25, 0.5],
+parser.add_argument('--lengthscale-range', type=float, nargs='*', default=[0.7, 1.],
                     help='Range for lengthscales when generating GP data')
-parser.add_argument('--sigma-range', type=float, nargs='*', default=[1., 1.],
+parser.add_argument('--sigma-range', type=float, nargs='*', default=[0.7, 1.],
                     help='Range for sigma (output variance) when generating GP data')
 parser.add_argument('--period-range', type=float, nargs='*', default=[1., 1.],
                     help='Range for periods when generating GP data')
@@ -90,9 +90,10 @@ if __name__ == '__main__':
     #        WandbLogPriorPosteriorSamplePlots()]
     trainer = pl.Trainer(gpus=0 if args.cpu or not torch.cuda.is_available() else 1,
                          max_epochs=args.max_epochs,
-                         checkpoint_callback=ModelCheckpoint(
-                             monitor='training_loss',
-                             filename='neural_process-{epoch:02d}-{validation_loss:.2f}'),
+                         checkpoint_callback=True,
+                         # ModelCheckpoint(
+                         #     monitor='training_loss',
+                         #     filename='neural_process-{epoch:02d}-{validation_loss:.2f}'),
                          logger=WandbLogger(project=f'AdvancedML-{args.dataset_type}',
                                             log_model=True),
                          auto_lr_find=args.tune_lr)#,
