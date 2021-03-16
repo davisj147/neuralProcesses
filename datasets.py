@@ -1,4 +1,5 @@
 import glob
+import os
 import numpy as np
 import torch
 import scipy.spatial
@@ -12,24 +13,22 @@ class GPData(Dataset):
     """
     Dataset of functions f(x) = a * sin(x - b) where a and b are randomly
     sampled. The function is evaluated from -pi to pi.
-
     Parameters
     ----------
     lengthscale_range : tuple of float
         Defines the range from which the amplitude (i.e. a) of the sine function
         is sampled.
-
     shift_range : tuple of float
         Defines the range from which the shift (i.e. b) of the sine function is
         sampled.
-
     num_samples : int
         Number of samples of the function contained in dataset.
-
     num_points : int
         Number of points at which to evaluate f(x) for x in [-1, 1]. <- could also change this later
     """
     def __init__(self, lengthscale_range=(0.1, 2), noise_range=(0.05, 1), num_samples=1000, num_points=100):
+        self.is_img=False
+        self.img_size = None  ##
         self.num_samples = num_samples
         self.num_points = num_points
         self.x_dim = 1  # x and y dim are fixed for this dataset.
@@ -43,8 +42,7 @@ class GPData(Dataset):
         self.xs = []
         self.ys = []
         for i in range(num_samples):
-            points = rng.uniform(low=-1, high=1, size=(num_points, 1))
-            x = np.sort(points, axis=0)
+            x = torch.linspace(-1, 1, num_points).unsqueeze(1) 
             self.xs.append(x)
             # print(x)
             
@@ -76,25 +74,23 @@ class SineData(Dataset):
     """
     Dataset of functions f(x) = a * sin(x - b) where a and b are randomly
     sampled. The function is evaluated from -pi to pi.
-
     Parameters
     ----------
     amplitude_range : tuple of float
         Defines the range from which the amplitude (i.e. a) of the sine function
         is sampled.
-
     shift_range : tuple of float
         Defines the range from which the shift (i.e. b) of the sine function is
         sampled.
-
     num_samples : int
         Number of samples of the function contained in dataset.
-
     num_points : int
         Number of points at which to evaluate f(x) for x in [-pi, pi].
     """
     def __init__(self, amplitude_range=(-1., 1.), shift_range=(-.5, .5),
                  num_samples=1000, num_points=100):
+        self.is_img = False
+        self.img_size = None
         self.amplitude_range = amplitude_range
         self.shift_range = shift_range
         self.num_samples = num_samples
@@ -124,63 +120,110 @@ class SineData(Dataset):
         return self.num_samples
 
 
-def mnist(batch_size=16, size=28, path_to_data='../data'):
-    """MNIST dataloader.
+class ImgDataset(Dataset):
+    def __init__(self, dataset_type, batch_size, path_to_data='../data'):
+        self.batch_size = batch_size
+        self.is_img = True
+        self.img_size = 28 if (dataset_type == 'mnist') else 32 
+        self.x_dim = 2
+        self.y_dim = 1 if (dataset_type == 'mnist') else 3 
+        if dataset_type == 'mnist':
+            self.transforms = transforms.Compose([
+                                transforms.Resize(self.img_size),
+                                transforms.ToTensor()
+                            ])
+            self.ds = mnist(batch_size=self.batch_size, path_to_data=path_to_data, transform=self.transforms) 
+        elif dataset_type == 'celeb':
+            self.transforms = transforms.Compose([
+                                transforms.CenterCrop(89),
+                                transforms.Resize(self.img_size),
+                                transforms.ToTensor()
+                            ])
+            self.ds = celeba(batch_size=self.batch_size, path_to_data=path_to_data, transform=self.transforms)
 
+    def __getitem__(self, index):
+        return self.ds[index]
+
+    def __len__(self):
+        return len(self.ds)
+
+class test_ImgDataset(Dataset):
+    def __init__(self, dataset_type, batch_size, path_to_data='../data'):
+        self.batch_size = batch_size
+        self.is_img = True
+        self.img_size = 28 if (dataset_type == 'mnist') else 32 
+        self.x_dim = 2
+        self.y_dim = 1 if (dataset_type == 'mnist') else 3 
+        if dataset_type == 'mnist':
+            self.transforms = transforms.Compose([
+                                transforms.Resize(self.img_size),
+                                transforms.ToTensor()
+                            ])
+            self.ds = datasets.MNIST(path_to_data, train=False, transform=self.transforms)
+        elif dataset_type == 'celeb':
+            self.transforms = transforms.Compose([
+                                transforms.CenterCrop(89),
+                                transforms.Resize(self.img_size),
+                                transforms.ToTensor()
+                            ])
+            self.ds = CelebADataset(path_to_data,subsample=1, transform=self.transforms)
+
+    def __getitem__(self, index):
+        return self.ds[index]
+
+    def __len__(self):
+        return len(self.ds)
+
+
+def mnist(batch_size=16, path_to_data='../data', transform=None):
+    """MNIST dataloader.
     Parameters
     ----------
     batch_size : int
-
     size : int
         Size (height and width) of each image. Default is 28 for no resizing.
-
     path_to_data : string
         Path to MNIST data files.
     """
-    all_transforms = transforms.Compose([
-        transforms.Resize(size),
-        transforms.ToTensor()
-    ])
+    # all_transforms = transforms.Compose([
+    #     transforms.Resize(size),
+    #     transforms.ToTensor()
+    # ])
 
     train_data = datasets.MNIST(path_to_data, train=True, download=True,
-                                transform=all_transforms)
-    test_data = datasets.MNIST(path_to_data, train=False,
-                               transform=all_transforms)
+                                transform=transform)
+    # test_data = datasets.MNIST(path_to_data, train=False,
+                               #transform=transform)
 
-    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
+    # train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+    # test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
 
-    return train_loader, test_loader
+    return train_data
 
 
-def celeba(batch_size=16, size=32, crop=89, path_to_data='../celeba_data',
-           shuffle=True):
+def celeba(batch_size=16, path_to_data='../celeba_data', transform=None):
     """CelebA dataloader.
-
     Parameters
     ----------
     batch_size : int
-
     size : int
         Size (height and width) of each image.
-
     crop : int
         Size of center crop. This crop happens *before* the resizing.
-
     path_to_data : string
         Path to CelebA data files.
     """
-    transform = transforms.Compose([
-        transforms.CenterCrop(crop),
-        transforms.Resize(size),
-        transforms.ToTensor()
-    ])
+    #transform = transforms.Compose([
+    #    transforms.CenterCrop(crop),
+    #    transforms.Resize(size),
+    #    transforms.ToTensor()
+    #])
 
-    celeba_data = CelebADataset(path_to_data,
-                                transform=transform)
-    celeba_loader = DataLoader(celeba_data, batch_size=batch_size,
-                               shuffle=shuffle)
-    return celeba_loader
+    celeba_data = CelebADataset(path_to_data,subsample=1,
+                               transform=transform)
+    #celeba_loader = DataLoader(celeba_data, batch_size=batch_size,
+    #                           shuffle=shuffle)
+    return celeba_data
 
 
 class CelebADataset(Dataset):
@@ -191,13 +234,13 @@ class CelebADataset(Dataset):
         ----------
         path_to_data : string
             Path to CelebA data files.
-
         subsample : int
             Only load every |subsample| number of images.
-
         transform : torchvision.transforms
             Torchvision transforms to be applied to each image.
         """
+        if os.path.isdir(f'../celebA/img_align_celeba'):
+            path_to_data = f'../celebA/img_align_celeba'
         self.img_paths = glob.glob(path_to_data + '/*.jpg')[::subsample]
         self.transform = transform
 
