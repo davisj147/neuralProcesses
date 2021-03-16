@@ -7,6 +7,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pl_modules import process_data_to_points, batch_img_to_functional
 
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, Matern, ExpSineSquared, ConstantKernel
+
 from torchvision.utils import make_grid
 
 
@@ -58,10 +61,16 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
         sample_id = random.randint(1, x.shape[0])
         pl_module.eval()
 
-        x, y = x[(sample_id-1):sample_id], y[(sample_id-1):sample_id]
+        # x, y = x[(sample_id-1):sample_id], y[(sample_id-1):sample_id]
+        rng = np.random.default_rng()
+        x, y, l, s, p = trainer.datamodule.val_dataloader().dataset.generate_gp_sample(rng)
+        x, y = torch.tensor(x).float().to(pl_module.device).unsqueeze(0), torch.tensor(y).float().to(pl_module.device).unsqueeze(0).unsqueeze(2)
 
-        fig, axs = plt.subplots(2,2, figsize=(16, 10))
+        kernel_type = trainer.datamodule.val_dataloader().dataset.kernel
+        fig, axs = plt.subplots(2,2, figsize=(18, 6))
         flat_axs = axs.flatten()
+        
+        # plt.clf()
         for j, n_context in enumerate([4, 8, 16, 64]):
 
             x_context, y_context, _, _ = process_data_to_points(x, y, n_context)
@@ -84,6 +93,16 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
             flat_axs[j].scatter(x_context[0].cpu().numpy(), y_context[0].cpu().numpy(), c='k')
 
         wandb.log({"posterior_samples": fig})
+
+        fig, axs = plt.subplots(2,2, figsize=(18, 6))
+        flat_axs = axs.flatten()
+
+        for j, n_context in enumerate([4, 8, 16, 64]):
+            _visualise_with_gp_comparison(flat_axs[j], x, y, l, s, p, kernel_type, pl_module, n_context, n=1)
+        wandb.log({"posterior_single_sample": wandb.Image(fig)})
+
+        plt.clf()
+
 
     def _visualise_posterior_img(self, trainer, pl_module):
         x, y = next(iter(trainer.datamodule.val_dataloader()))
@@ -141,3 +160,46 @@ def context_to_img(x_context, y_context, img_h, img_w):
     img[:, x_coords, y_coords] = y_context[0, :, :].T
 
     return img
+
+def _visualise_with_gp_comparison(ax, x, y, l, s, p, kernel_type, pl_module, n_context, n=16):
+    x_context, y_context, _, _ = process_data_to_points(x, y, n_context)
+
+    # Create a set of target points corresponding to entire [-pi, pi] range
+    x_target = torch.Tensor(np.linspace(torch.min(x).item(), torch.max(x).item(), 100))
+    x_target = x_target.unsqueeze(1).unsqueeze(0)
+    for i in range(n):
+        # Neural process returns distribution over y_target
+        p_y_pred, _, _ = pl_module.model(x_context.to(pl_module.device),
+                                            y_context.to(pl_module.device),
+                                            x_target.to(pl_module.device), None)
+        # Extract mean of distribution
+        mu = p_y_pred.loc.detach().cpu().numpy()[0]
+        sigma = p_y_pred.scale.detach().cpu().numpy()
+
+        ax.plot(x_target.cpu().numpy()[0], mu,
+                    alpha=0.3, c='b')
+        # ax.plot(x.cpu().numpy()[0], y.cpu().numpy()[0],
+        #             alpha=0.7, c='r')
+        ax.fill_between(x_target.cpu().numpy()[0].flatten(),
+         mu.flatten() + 2* sigma.flatten(),
+         mu.flatten() - 2* sigma.cpu().flatten(),
+         color='b', alpha=0.5/n)
+
+    if kernel_type == 'rbf':
+        kernel = ConstantKernel(s**2, constant_value_bounds = "fixed") * RBF(length_scale=l, length_scale_bounds="fixed")
+    elif kernel_type == 'matern':
+        kernel = ConstantKernel(s**2, constant_value_bounds = "fixed") * Matern(length_scale=l, length_scale_bounds="fixed")
+    else:
+        kernel = ConstantKernel(s**2, constant_value_bounds = "fixed") * ExpSineSquared(length_scale=l, length_scale_bounds="fixed", periodicity=p, periodicity_bounds="fixed")
+    
+    gpr = GaussianProcessRegressor(kernel)
+    gpr.fit(x_context[0].cpu().numpy(), y_context[0].cpu().numpy())
+    gp_mean, gp_std = gpr.predict(x_target.cpu().numpy()[0], return_std=True)
+
+    ax.plot(x_target.cpu().numpy()[0], gp_mean,
+                    alpha=0.7, c='g')
+    ax.plot(x_target.cpu().numpy()[0], gp_mean.flatten() + 2*gp_std.flatten(), c='g', linestyle='dashed')#, alpha=0.7,)
+    ax.plot(x_target.cpu().numpy()[0], gp_mean.flatten() - 2*gp_std.flatten(), c='g', linestyle='dashed')#, alpha=0.7,)
+        
+
+    ax.scatter(x_context[0].cpu().numpy(), y_context[0].cpu().numpy(), c='k')
