@@ -59,14 +59,17 @@ if __name__ == '__main__':
     # 1 SETUP DATA MODULES
     # ------------------------
     dm = NPDataModule(dataset_type=args.dataset_type,
-                      num_workers=args.num_workers,
+                      num_workers=0, ## Running really slow when > 0
                       batch_size=args.batch_size,
                       kernel=args.gp_kernel,
                       num_samples=args.n_samples,
+                      num_context_points=args.num_context,
+                      num_target_points=args.num_target,
                       num_points=args.n_points,
                       lengthscale_range=args.lengthscale_range,
                       sigma_range=args.sigma_range,
-                      period_range=args.period_range)
+                      period_range=args.period_range,
+                      shuffle_context_position=True)
 
     # ------------------------
     # 2 INIT LIGHTNING MODEL
@@ -74,8 +77,6 @@ if __name__ == '__main__':
     model = PLNeuralProcess(x_dim=dm.x_dim,
                             y_dim=dm.y_dim,
                             lr=args.lr,
-                            num_context=args.num_context,
-                            num_target=args.num_target,
                             r_dim=args.r_dim,
                             z_dim=args.z_dim,
                             h_dim=args.h_dim,
@@ -85,8 +86,8 @@ if __name__ == '__main__':
     # ------------------------
     # 4 INIT TRAINER
     # ------------------------
-    cbs = [EarlyStopping(monitor='validation_loss', verbose=True, patience=5, mode='min'),
-           WandbLogPriorPosteriorSamplePlots()]
+    # cbs = [EarlyStopping(monitor='validation_loss', verbose=True, patience=5, mode='min'),
+    #        WandbLogPriorPosteriorSamplePlots()]
     trainer = pl.Trainer(gpus=0 if args.cpu or not torch.cuda.is_available() else 1,
                          max_epochs=args.max_epochs,
                          checkpoint_callback=ModelCheckpoint(
@@ -94,8 +95,8 @@ if __name__ == '__main__':
                              filename='neural_process-{epoch:02d}-{validation_loss:.2f}'),
                          logger=WandbLogger(project=f'AdvancedML-{args.dataset_type}',
                                             log_model=True),
-                         auto_lr_find=args.tune_lr,
-                         callbacks=cbs)
+                         auto_lr_find=args.tune_lr)#,
+                         #callbacks=cbs)
 
     # ------------------------
     # 5 START TRAINING
