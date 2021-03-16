@@ -8,6 +8,9 @@ from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 from torchvision import datasets, transforms
 
+from sklearn.gaussian_process.kernels import RBF, Matern, ExpSineSquared
+
+
 
 class GPData(Dataset):
     """
@@ -26,7 +29,8 @@ class GPData(Dataset):
     num_points : int
         Number of points at which to evaluate f(x) for x in [-1, 1]. <- could also change this later
     """
-    def __init__(self, lengthscale_range=(0.1, 2), noise_range=(0.05, 1), num_samples=1000, num_points=100):
+    def __init__(self, lengthscale_range=(0.25, 0.5), sigma_range=(1, 1), period_range = (1,1), 
+                    num_samples=10000, num_points=100, kernel = 'rbf', **kwargs):
         self.is_img=False
         self.img_size = None  ##
         self.num_samples = num_samples
@@ -34,34 +38,60 @@ class GPData(Dataset):
         self.x_dim = 1  # x and y dim are fixed for this dataset.
         self.y_dim = 1
 
-        min_l, max_l = lengthscale_range
-        min_noise, max_noise = noise_range
+        assert(kernel in ['rbf', 'periodic', 'matern'])
+        self.kernel=kernel
+
+        self.min_l, self.max_l = lengthscale_range
+        self.min_sigma, self.max_sigma = sigma_range
+        self.min_p, self.max_p = period_range
 
         # Generate data
         rng = np.random.default_rng()
         self.xs = []
         self.ys = []
         for i in range(num_samples):
-            x = torch.linspace(-1, 1, num_points).unsqueeze(1) 
+            x, y, _, _, _ = self.generate_gp_sample(rng)
+
             self.xs.append(x)
-            # print(x)
-            
-            lengthscale = (max_l - min_l) * rng.random() + min_l
-            noise = (max_noise - min_noise) * rng.random() + min_noise
-
-            cov = self.rbf_kernel(x, x, lengthscale, noise)
-
-            # y = rng.multivariate_normal(np.zeros(num_points), cov)
-            y = rng.multivariate_normal(np.zeros(num_points), cov)
-
             self.ys.append(np.expand_dims(y, 1))
+    
+    def generate_gp_sample(self, rng):
+        period=0
+        x = np.linspace(-1, 1, self.num_points).reshape((-1,1))        
+        lengthscale = (self.max_l - self.min_l) * rng.random() + self.min_l
+        sigma = (self.max_sigma - self.min_sigma) * rng.random() + self.min_sigma
+
+        if self.kernel == 'rbf':
+            cov = self.rbf_kernel(x, x, lengthscale, sigma)
+        if self.kernel == 'matern':
+            cov = self.matern_kernel(x, x, lengthscale, sigma)
+        if self.kernel == 'periodic':
+            period = (self.max_p - self.min_p) * rng.random() + self.min_p
+            cov = self.periodic_kernel(x, x, lengthscale, sigma, period)
+        y = rng.multivariate_normal(np.zeros(self.num_points), cov)
+
+        return x, y, lengthscale, sigma, period
+
 
     # will hopefully be able to add other kernels
-    def rbf_kernel(self, xa, xb, lengthscale, noise):
+    def rbf_kernel(self, xa, xb, lengthscale, sigma):
         """rbf kernel"""
         # L2 distance (Squared Euclidian)
-        sq_norm = -0.5 * scipy.spatial.distance.cdist(xa, xb, 'sqeuclidean')
-        return (noise**2)*np.exp(sq_norm/(lengthscale**2))
+        # sq_norm = -0.5 * scipy.spatial.distance.cdist(xa, xb, 'sqeuclidean')
+        # return (sigma**2)*np.exp(sq_norm/(lengthscale**2))
+        kernel = RBF(length_scale=lengthscale)
+        return sigma**2 * kernel(xa, xb)
+
+    def periodic_kernel(self, xa, xb, lengthscale, sigma, period):
+        # L1 distance
+        # l1 = np.subtract.outer(xa, xb)
+        # return (sigma**2)*np.exp((np.sin(np.pi * l1 / period)**2)/(lengthscale**2))
+        kernel = ExpSineSquared(length_scale=lengthscale, periodicity=period)
+        return sigma**2 * kernel(xa, xb)
+
+    def matern_kernel(self, xa, xb, lengthscale, sigma, nu=1.5):
+        kernel = Matern(length_scale=lengthscale, nu=nu)
+        return sigma**2 * kernel(xa, xb)
 
     def __getitem__(self, index):
         # slightly changed because not sure if it makes sense to choose points as linspace for training
@@ -88,7 +118,7 @@ class SineData(Dataset):
         Number of points at which to evaluate f(x) for x in [-pi, pi].
     """
     def __init__(self, amplitude_range=(-1., 1.), shift_range=(-.5, .5),
-                 num_samples=1000, num_points=100):
+                 num_samples=1000, num_points=100, **kwargs):
         self.is_img = False
         self.img_size = None
         self.amplitude_range = amplitude_range
@@ -121,8 +151,7 @@ class SineData(Dataset):
 
 
 class ImgDataset(Dataset):
-    def __init__(self, dataset_type, batch_size, path_to_data='../data'):
-        self.batch_size = batch_size
+    def __init__(self, data_type, path_to_data='../data', size=32, crop=89, **kwargs):
         self.is_img = True
         self.img_size = 28 if (dataset_type == 'mnist') else 32 
         self.x_dim = 2
