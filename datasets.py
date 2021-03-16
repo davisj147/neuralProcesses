@@ -151,7 +151,8 @@ class SineData(Dataset):
 
 
 class ImgDataset(Dataset):
-    def __init__(self, data_type, path_to_data='../data', size=32, crop=89, **kwargs):
+    def __init__(self, dataset_type, batch_size, path_to_data='../data', size=32, crop=89, **kwargs):
+        self.batch_size = batch_size
         self.is_img = True
         self.img_size = 28 if (dataset_type == 'mnist') else 32 
         self.x_dim = 2
@@ -161,14 +162,14 @@ class ImgDataset(Dataset):
                                 transforms.Resize(self.img_size),
                                 transforms.ToTensor()
                             ])
-            self.ds = mnist(batch_size=self.batch_size, path_to_data=path_to_data, transform=self.transforms) 
+            self.ds = datasets.MNIST(path_to_data, train=True, transform=self.transforms) 
         elif dataset_type == 'celeb':
             self.transforms = transforms.Compose([
                                 transforms.CenterCrop(89),
                                 transforms.Resize(self.img_size),
                                 transforms.ToTensor()
                             ])
-            self.ds = celeba(batch_size=self.batch_size, path_to_data=path_to_data, transform=self.transforms)
+            self.ds = CelebADataset(path_to_data,subsample=1, transform=self.transforms)
 
     def __getitem__(self, index):
         return self.ds[index]
@@ -177,7 +178,7 @@ class ImgDataset(Dataset):
         return len(self.ds)
 
 class test_ImgDataset(Dataset):
-    def __init__(self, dataset_type, batch_size, path_to_data='../data'):
+    def __init__(self, dataset_type, batch_size, path_to_data='../data', **kwargs):
         self.batch_size = batch_size
         self.is_img = True
         self.img_size = 28 if (dataset_type == 'mnist') else 32 
@@ -204,55 +205,55 @@ class test_ImgDataset(Dataset):
         return len(self.ds)
 
 
-def mnist(batch_size=16, path_to_data='../data', transform=None):
-    """MNIST dataloader.
-    Parameters
-    ----------
-    batch_size : int
-    size : int
-        Size (height and width) of each image. Default is 28 for no resizing.
-    path_to_data : string
-        Path to MNIST data files.
-    """
-    # all_transforms = transforms.Compose([
-    #     transforms.Resize(size),
-    #     transforms.ToTensor()
-    # ])
+# def mnist(batch_size=16, path_to_data='../data', transform=None):
+#     """MNIST dataloader.
+#     Parameters
+#     ----------
+#     batch_size : int
+#     size : int
+#         Size (height and width) of each image. Default is 28 for no resizing.
+#     path_to_data : string
+#         Path to MNIST data files.
+#     """
+#     # all_transforms = transforms.Compose([
+#     #     transforms.Resize(size),
+#     #     transforms.ToTensor()
+#     # ])
 
-    train_data = datasets.MNIST(path_to_data, train=True, download=True,
-                                transform=transform)
-    # test_data = datasets.MNIST(path_to_data, train=False,
-                               #transform=transform)
+#     train_data = datasets.MNIST(path_to_data, train=True, download=True,
+#                                 transform=transform)
+#     # test_data = datasets.MNIST(path_to_data, train=False,
+#                                #transform=transform)
 
-    # train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    # test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
+#     # train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+#     # test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
 
-    return train_data
+#     return train_data
 
 
-def celeba(batch_size=16, path_to_data='../celeba_data', transform=None):
-    """CelebA dataloader.
-    Parameters
-    ----------
-    batch_size : int
-    size : int
-        Size (height and width) of each image.
-    crop : int
-        Size of center crop. This crop happens *before* the resizing.
-    path_to_data : string
-        Path to CelebA data files.
-    """
-    #transform = transforms.Compose([
-    #    transforms.CenterCrop(crop),
-    #    transforms.Resize(size),
-    #    transforms.ToTensor()
-    #])
+# def celeba(batch_size=16, path_to_data='../celeba_data', transform=None):
+#     """CelebA dataloader.
+#     Parameters
+#     ----------
+#     batch_size : int
+#     size : int
+#         Size (height and width) of each image.
+#     crop : int
+#         Size of center crop. This crop happens *before* the resizing.
+#     path_to_data : string
+#         Path to CelebA data files.
+#     """
+#     #transform = transforms.Compose([
+#     #    transforms.CenterCrop(crop),
+#     #    transforms.Resize(size),
+#     #    transforms.ToTensor()
+#     #])
 
-    celeba_data = CelebADataset(path_to_data,subsample=1,
-                               transform=transform)
-    #celeba_loader = DataLoader(celeba_data, batch_size=batch_size,
-    #                           shuffle=shuffle)
-    return celeba_data
+#     celeba_data = CelebADataset(path_to_data,subsample=1,
+#                                transform=transform)
+#     #celeba_loader = DataLoader(celeba_data, batch_size=batch_size,
+#     #                           shuffle=shuffle)
+#     return celeba_data
 
 
 class CelebADataset(Dataset):
@@ -270,6 +271,8 @@ class CelebADataset(Dataset):
         """
         if os.path.isdir(f'../celebA/img_align_celeba'):
             path_to_data = f'../celebA/img_align_celeba'
+        if os.path.isdir(f'{path_to_data}/celeba32/img_align_celeba'):
+            path_to_data = f'{path_to_data}/celeba32/img_align_celeba'
         self.img_paths = glob.glob(path_to_data + '/*.jpg')[::subsample]
         self.transform = transform
 
