@@ -34,7 +34,6 @@ class GPData(Dataset):
                  num_samples=10000, num_points=100, kernel='rbf', shuffle_context_position=False):
 
         assert (kernel in ['rbf', 'periodic', 'matern'])
-        assert num_context_points + num_target_points <= num_points
         self.is_img = False
         self.img_size = None  ##
         self.num_samples = num_samples
@@ -52,7 +51,7 @@ class GPData(Dataset):
         self.min_p, self.max_p = period_range
 
         self._generate_data()
-        self._split_data_to_context_target_points()
+        # self._split_data_to_context_target_points()
 
     def _generate_data(self):
         # Generate data
@@ -60,35 +59,35 @@ class GPData(Dataset):
         self.xs = []
         self.ys = []
         for i in range(self.num_samples):
-            x, y, _, _, _ = self._generate_gp_sample(rng)
+            x, y, _, _, _ = self.generate_gp_sample(rng)
 
             self.xs.append(x)
             self.ys.append(np.expand_dims(y, 1))
 
-    def _split_data_to_context_target_points(self):
-        ## Choice to keep the same context positions for comparison purposes
-        if self.shuffle_context_position:
-            context_indices = [sample(range(len(i)), self.num_context_points) for i in self.xs]
-        else:
-            sample_context_indices = sample(range(len(self.xs[0])), self.num_context_points)
-            context_indices = [sample_context_indices for i in range(len(self.xs))]
+    # def _split_data_to_context_target_points(self):
+    #     ## Choice to keep the same context positions for comparison purposes
+    #     if self.shuffle_context_position:
+    #         context_indices = [sample(range(len(i)), self.num_context_points) for i in self.xs]
+    #     else:
+    #         sample_context_indices = sample(range(len(self.xs[0])), self.num_context_points)
+    #         context_indices = [sample_context_indices for i in range(len(self.xs))]
+    #
+    #     ## Always shuffle target indices.
+    #     target_indices = [sample(list(set(range(len(self.xs[i]))) - set(context_indices[i])),
+    #                              self.num_target_points) for i in range(len(self.xs))]
+    #
+    #     self.data = [{'context_points_x': torch.tensor(x[ctx_ind]).float(),
+    #                   'context_points_y': torch.tensor(y[ctx_ind]).float(),
+    #                   'target_points_x': torch.tensor(x[ctx_ind + tar_ind]).float(),
+    #                   'target_points_y': torch.tensor(y[ctx_ind + tar_ind]).float(),
+    #                   'target_points_only_x': torch.tensor(x[tar_ind]).float(),
+    #                   'target_points_only_y': torch.tensor(y[tar_ind]).float(),
+    #                   'context_points_x_all': torch.tensor(x).float(),
+    #                   'context_points_y_all': torch.tensor(y).float()
+    #                   } for ctx_ind, tar_ind, x, y in
+    #                  zip(context_indices, target_indices, self.xs, self.ys)]
 
-        ## Always shuffle target indices.
-        target_indices = [sample(list(set(range(len(self.xs[i]))) - set(context_indices[i])),
-                                 self.num_target_points) for i in range(len(self.xs))]
-
-        self.data = [{'context_points_x': torch.tensor(x[ctx_ind]).float(),
-                      'context_points_y': torch.tensor(y[ctx_ind]).float(),
-                      'target_points_x': torch.tensor(x[ctx_ind + tar_ind]).float(),
-                      'target_points_y': torch.tensor(y[ctx_ind + tar_ind]).float(),
-                      'target_points_only_x': torch.tensor(x[tar_ind]).float(),
-                      'target_points_only_y': torch.tensor(y[tar_ind]).float(),
-                      'context_points_x_all': torch.tensor(x).float(),
-                      'context_points_y_all': torch.tensor(y).float()
-                      } for ctx_ind, tar_ind, x, y in
-                     zip(context_indices, target_indices, self.xs, self.ys)]
-
-    def _generate_gp_sample(self, rng):
+    def generate_gp_sample(self, rng):
         period = 0
         x = np.linspace(-np.pi, np.pi, self.num_points).reshape((-1, 1))
         lengthscale = (self.max_l - self.min_l) * rng.random() + self.min_l
@@ -127,8 +126,8 @@ class GPData(Dataset):
 
     def __getitem__(self, index):
         # slightly changed because not sure if it makes sense to choose points as linspace for training
-        # return torch.tensor(self.xs[index]).float(), torch.tensor(self.ys[index]).float()
-        return self.data[index]
+        return torch.tensor(self.xs[index]).float(), torch.tensor(self.ys[index]).float()
+        # return self.data[index]
 
     def __len__(self):
         return self.num_samples

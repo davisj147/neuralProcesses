@@ -18,9 +18,6 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def _visualize_batch(self, trainer):
-        plt = trainer.datamodule.train_dataloader().show_batch()
-        wandb.log({"training_batch": plt})
 
     def _visualise_prior_1d(self, pl_module):
         x_target = torch.Tensor(np.linspace(-1, 1, 100))
@@ -154,10 +151,6 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
             else:     
                 self._visualise_prior_1d(pl_module)
                 self._visualise_posterior_1d(trainer, pl_module)
-
-    def on_train_epoch_start(self, trainer, pl_module):
-        if not trainer.running_sanity_check:
-            self._visualize_batch(trainer)
            
 def context_to_img(x_context, y_context, img_h, img_w):
     channels = y_context.shape[-1]

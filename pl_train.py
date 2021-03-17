@@ -14,11 +14,13 @@ parser.add_argument('--dataset_type', type=str, default='sine',
                     choices=['sine', 'gpdata', 'mnist', 'celeb'], help='Dataset name')
 parser.add_argument('--num_workers', type=int, default=0,
                     help='Number of CPU cores to load data on')
-parser.add_argument('--batch_size', type=int, default=8,
+parser.add_argument('--batch_size', type=int, default=125,
                     help='Data batch size')
-parser.add_argument('--num_context', type=int, default=8,
+parser.add_argument('--num_context', type=int, default=30,
                     help='Number of Context datapoints')
-parser.add_argument('--num_target', type=int, default=16,
+parser.add_argument('--fix_n_context_and_target_points', action='store_true',
+                    help='Whether to always select num_context and num_target points during training. Otherwise, select randomly from (3, num_context) and (1, num_target)')
+parser.add_argument('--num_target', type=int, default=70,
                     help='Number of Target datapoints (Context + Target by convention)')
 parser.add_argument('--r_dim', type=int, default=50,
                     help='Dimension of encoder representation of context points')
@@ -30,11 +32,11 @@ parser.add_argument('--h_dim_enc', type=int, nargs='*', default=[50, 50],
                     help='Dimension(s) of hidden layer(s) in encoder')
 parser.add_argument('--h_dim_dec', type=int, nargs='*', default=[50, 50, 50],
                     help='Dimension(s) of hidden layer(s) in decoder')
-parser.add_argument('--max_epochs', type=int, default=20,
+parser.add_argument('--max_epochs', type=int, default=1000,
                     help='Maximum number of training epochs')
 parser.add_argument('--cpu', action='store_true',
                     help='Whether to train on the CPU. If ommited, will train on a GPU')
-parser.add_argument('--lr', type=float, default=1e-3,
+parser.add_argument('--lr', type=float, default=3e-3,
                     help='Initial learning rate')
 parser.add_argument('--tune-lr', action='store_true',
                     help='Whether to automatically tune the learning rate prior to training')
@@ -51,6 +53,8 @@ parser.add_argument('--sigma-range', type=float, nargs='*', default=[0.7, 1.],
                     help='Range for sigma (output variance) when generating GP data')
 parser.add_argument('--period-range', type=float, nargs='*', default=[1., 1.],
                     help='Range for periods when generating GP data')
+parser.add_argument('--check_val_every_n_epoch', type=int, default=50,
+                    help='How often to run validation loop and run logging plots')
 
 args = parser.parse_args()
 
@@ -63,13 +67,10 @@ if __name__ == '__main__':
                       batch_size=args.batch_size,
                       kernel=args.gp_kernel,
                       num_samples=args.n_samples,
-                      num_context_points=args.num_context,
-                      num_target_points=args.num_target,
                       num_points=args.n_points,
                       lengthscale_range=args.lengthscale_range,
                       sigma_range=args.sigma_range,
-                      period_range=args.period_range,
-                      shuffle_context_position=True)
+                      period_range=args.period_range)
 
     # ------------------------
     # 2 INIT LIGHTNING MODEL
@@ -77,6 +78,9 @@ if __name__ == '__main__':
     model = PLNeuralProcess(x_dim=dm.x_dim,
                             y_dim=dm.y_dim,
                             lr=args.lr,
+                            num_context=args.num_context,
+                            num_target=args.num_target,
+                            fix_n_context_and_target_points=args.fix_n_context_and_target_points,
                             r_dim=args.r_dim,
                             z_dim=args.z_dim,
                             h_dim=args.h_dim,
@@ -86,8 +90,8 @@ if __name__ == '__main__':
     # ------------------------
     # 4 INIT TRAINER
     # ------------------------
-    # cbs = [EarlyStopping(monitor='validation_loss', verbose=True, patience=5, mode='min'),
-    #        WandbLogPriorPosteriorSamplePlots()]
+    cbs = [#EarlyStopping(monitor='validation_loss', verbose=True, patience=5, mode='min'),
+           WandbLogPriorPosteriorSamplePlots()]
     trainer = pl.Trainer(gpus=0 if args.cpu or not torch.cuda.is_available() else 1,
                          max_epochs=args.max_epochs,
                          checkpoint_callback=True,
@@ -96,8 +100,9 @@ if __name__ == '__main__':
                          #     filename='neural_process-{epoch:02d}-{validation_loss:.2f}'),
                          logger=WandbLogger(project=f'AdvancedML-{args.dataset_type}',
                                             log_model=True),
-                         auto_lr_find=args.tune_lr)#,
-                         #callbacks=cbs)
+                         check_val_every_n_epoch=args.check_val_every_n_epoch,
+                         auto_lr_find=args.tune_lr,
+                         callbacks=cbs)
 
     # ------------------------
     # 5 START TRAINING
