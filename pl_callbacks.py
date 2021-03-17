@@ -49,25 +49,30 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
         grid = make_grid(samples, nrow=3, pad_value=1.)
         plt.imshow(grid.permute(1, 2, 0).numpy())
             # plt.xlim(-1, 1)
-        
-        wandb.log({"prior_samples": plt})
 
+        wandb.log({"prior_samples": plt})
     
     
     def _visualise_posterior_1d(self, trainer, pl_module):
          # Visualize samples from posterior
         # Extract a batch from data_loader
         # Use batch to create random set of context points
-        x, y = next(iter(trainer.datamodule.val_dataloader()))
-        sample_id = random.randint(1, x.shape[0])
+
         pl_module.eval()
 
         # x, y = x[(sample_id-1):sample_id], y[(sample_id-1):sample_id]
-        rng = np.random.default_rng()
-        x, y, l, s, p = trainer.datamodule.val_dataloader().dataset.generate_gp_sample(rng)
-        x, y = torch.tensor(x).float().to(pl_module.device).unsqueeze(0), torch.tensor(y).float().to(pl_module.device).unsqueeze(0).unsqueeze(2)
+        if trainer.datamodule.dataset_type == "gpdata":
+            rng = np.random.default_rng()
+            x, y, l, s, p = trainer.datamodule.val_dataloader().dataset.generate_gp_sample(rng)
+            x, y = torch.tensor(x).float().to(pl_module.device).unsqueeze(0), torch.tensor(y).float().to(pl_module.device).unsqueeze(0).unsqueeze(2)
+            kernel_type = trainer.datamodule.val_dataloader().dataset.kernel
 
-        kernel_type = trainer.datamodule.val_dataloader().dataset.kernel
+        else:
+            x, y = next(iter(trainer.datamodule.val_dataloader()))
+            sample_id = random.randint(1, x.shape[0])
+            x, y = x[(sample_id-1):sample_id], y[(sample_id-1):sample_id]
+            kernel_type = None
+
         fig, axs = plt.subplots(2,2, figsize=(18, 6))
         flat_axs = axs.flatten()
         
@@ -92,17 +97,17 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
                             alpha=0.7, c='r')
 
             flat_axs[j].scatter(x_context[0].cpu().numpy(), y_context[0].cpu().numpy(), c='k')
-
         wandb.log({"posterior_samples": fig})
 
-        fig, axs = plt.subplots(2,2, figsize=(18, 6))
-        flat_axs = axs.flatten()
+        if trainer.datamodule.dataset_type == "gpdata":
+            fig, axs = plt.subplots(2,2, figsize=(18, 6))
+            flat_axs = axs.flatten()
 
-        for j, n_context in enumerate([4, 8, 16, 64]):
-            _visualise_with_gp_comparison(flat_axs[j], x, y, l, s, p, kernel_type, pl_module, n_context, n=1)
-        wandb.log({"posterior_single_sample": wandb.Image(fig)})
+            for j, n_context in enumerate([4, 8, 16, 64]):
+                _visualise_with_gp_comparison(flat_axs[j], x, y, l, s, p, kernel_type, pl_module, n_context, n=1)
+            wandb.log({"posterior_single_sample": wandb.Image(fig)})
 
-        plt.clf()
+            plt.clf()
 
 
     def _visualise_posterior_img(self, trainer, pl_module):
@@ -134,7 +139,6 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
                 imgs.append(img_mu)
         grid = make_grid(imgs, nrow=6, pad_value=1.)
         plt.imshow(grid.permute(1, 2, 0).numpy())
-
         wandb.log({"posterior_samples": plt})
 
 
@@ -179,11 +183,10 @@ def _visualise_with_gp_comparison(ax, x, y, l, s, p, kernel_type, pl_module, n_c
 
         ax.plot(x_target.cpu().numpy()[0], mu,
                     alpha=0.3, c='b')
-        # ax.plot(x.cpu().numpy()[0], y.cpu().numpy()[0],
-        #             alpha=0.7, c='r')
+                    
         ax.fill_between(x_target.cpu().numpy()[0].flatten(),
          mu.flatten() + 2* sigma.flatten(),
-         mu.flatten() - 2* sigma.cpu().flatten(),
+         mu.flatten() - 2* sigma.flatten(),
          color='b', alpha=0.5/n)
 
     if kernel_type == 'rbf':
