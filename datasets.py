@@ -8,6 +8,9 @@ from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 from torchvision import datasets, transforms
 
+from sklearn.gaussian_process.kernels import RBF, Matern, ExpSineSquared
+
+
 
 class GPData(Dataset):
     """
@@ -26,7 +29,8 @@ class GPData(Dataset):
     num_points : int
         Number of points at which to evaluate f(x) for x in [-1, 1]. <- could also change this later
     """
-    def __init__(self, lengthscale_range=(0.1, 2), noise_range=(0.05, 1), num_samples=1000, num_points=100):
+    def __init__(self, lengthscale_range=(0.25, 0.5), sigma_range=(1, 1), period_range = (1,1), 
+                    num_samples=10000, num_points=100, kernel = 'rbf', **kwargs):
         self.is_img=False
         self.img_size = None  ##
         self.num_samples = num_samples
@@ -34,35 +38,60 @@ class GPData(Dataset):
         self.x_dim = 1  # x and y dim are fixed for this dataset.
         self.y_dim = 1
 
-        min_l, max_l = lengthscale_range
-        min_noise, max_noise = noise_range
+        assert(kernel in ['rbf', 'periodic', 'matern'])
+        self.kernel=kernel
+
+        self.min_l, self.max_l = lengthscale_range
+        self.min_sigma, self.max_sigma = sigma_range
+        self.min_p, self.max_p = period_range
 
         # Generate data
         rng = np.random.default_rng()
         self.xs = []
         self.ys = []
         for i in range(num_samples):
-            points = rng.uniform(low=-1, high=1, size=(num_points, 1))
-            x = np.sort(points, axis=0)
+            x, y, _, _, _ = self.generate_gp_sample(rng)
+
             self.xs.append(x)
-            # print(x)
-            
-            lengthscale = (max_l - min_l) * rng.random() + min_l
-            noise = (max_noise - min_noise) * rng.random() + min_noise
-
-            cov = self.rbf_kernel(x, x, lengthscale, noise)
-
-            # y = rng.multivariate_normal(np.zeros(num_points), cov)
-            y = rng.multivariate_normal(np.zeros(num_points), cov)
-
             self.ys.append(np.expand_dims(y, 1))
+    
+    def generate_gp_sample(self, rng):
+        period=0
+        x = np.linspace(-1, 1, self.num_points).reshape((-1,1))        
+        lengthscale = (self.max_l - self.min_l) * rng.random() + self.min_l
+        sigma = (self.max_sigma - self.min_sigma) * rng.random() + self.min_sigma
+
+        if self.kernel == 'rbf':
+            cov = self.rbf_kernel(x, x, lengthscale, sigma)
+        if self.kernel == 'matern':
+            cov = self.matern_kernel(x, x, lengthscale, sigma)
+        if self.kernel == 'periodic':
+            period = (self.max_p - self.min_p) * rng.random() + self.min_p
+            cov = self.periodic_kernel(x, x, lengthscale, sigma, period)
+        y = rng.multivariate_normal(np.zeros(self.num_points), cov)
+
+        return x, y, lengthscale, sigma, period
+
 
     # will hopefully be able to add other kernels
-    def rbf_kernel(self, xa, xb, lengthscale, noise):
+    def rbf_kernel(self, xa, xb, lengthscale, sigma):
         """rbf kernel"""
         # L2 distance (Squared Euclidian)
-        sq_norm = -0.5 * scipy.spatial.distance.cdist(xa, xb, 'sqeuclidean')
-        return (noise**2)*np.exp(sq_norm/(lengthscale**2))
+        # sq_norm = -0.5 * scipy.spatial.distance.cdist(xa, xb, 'sqeuclidean')
+        # return (sigma**2)*np.exp(sq_norm/(lengthscale**2))
+        kernel = RBF(length_scale=lengthscale)
+        return sigma**2 * kernel(xa, xb)
+
+    def periodic_kernel(self, xa, xb, lengthscale, sigma, period):
+        # L1 distance
+        # l1 = np.subtract.outer(xa, xb)
+        # return (sigma**2)*np.exp((np.sin(np.pi * l1 / period)**2)/(lengthscale**2))
+        kernel = ExpSineSquared(length_scale=lengthscale, periodicity=period)
+        return sigma**2 * kernel(xa, xb)
+
+    def matern_kernel(self, xa, xb, lengthscale, sigma, nu=1.5):
+        kernel = Matern(length_scale=lengthscale, nu=nu)
+        return sigma**2 * kernel(xa, xb)
 
     def __getitem__(self, index):
         # slightly changed because not sure if it makes sense to choose points as linspace for training
@@ -89,7 +118,7 @@ class SineData(Dataset):
         Number of points at which to evaluate f(x) for x in [-pi, pi].
     """
     def __init__(self, amplitude_range=(-1., 1.), shift_range=(-.5, .5),
-                 num_samples=1000, num_points=100):
+                 num_samples=1000, num_points=100, **kwargs):
         self.is_img = False
         self.img_size = None
         self.amplitude_range = amplitude_range
@@ -122,7 +151,7 @@ class SineData(Dataset):
 
 
 class ImgDataset(Dataset):
-    def __init__(self, dataset_type, batch_size, path_to_data='../data'):
+    def __init__(self, dataset_type, batch_size, path_to_data='../data', size=32, crop=89, **kwargs):
         self.batch_size = batch_size
         self.is_img = True
         self.img_size = 28 if (dataset_type == 'mnist') else 32 
@@ -133,14 +162,14 @@ class ImgDataset(Dataset):
                                 transforms.Resize(self.img_size),
                                 transforms.ToTensor()
                             ])
-            self.ds = mnist(batch_size=self.batch_size, path_to_data=path_to_data, transform=self.transforms) 
+            self.ds = datasets.MNIST(path_to_data, train=True, transform=self.transforms) 
         elif dataset_type == 'celeb':
             self.transforms = transforms.Compose([
-                                transforms.CenterCrop(89),
+                                transforms.CenterCrop(156),
                                 transforms.Resize(self.img_size),
                                 transforms.ToTensor()
                             ])
-            self.ds = celeba(batch_size=self.batch_size, path_to_data=path_to_data, transform=self.transforms)
+            self.ds = CelebADataset(path_to_data,subsample=1, transform=self.transforms)
 
     def __getitem__(self, index):
         return self.ds[index]
@@ -149,7 +178,7 @@ class ImgDataset(Dataset):
         return len(self.ds)
 
 class test_ImgDataset(Dataset):
-    def __init__(self, dataset_type, batch_size, path_to_data='../data'):
+    def __init__(self, dataset_type, batch_size, path_to_data='../data', **kwargs):
         self.batch_size = batch_size
         self.is_img = True
         self.img_size = 28 if (dataset_type == 'mnist') else 32 
@@ -163,7 +192,7 @@ class test_ImgDataset(Dataset):
             self.ds = datasets.MNIST(path_to_data, train=False, transform=self.transforms)
         elif dataset_type == 'celeb':
             self.transforms = transforms.Compose([
-                                transforms.CenterCrop(89),
+                                transforms.CenterCrop(156),
                                 transforms.Resize(self.img_size),
                                 transforms.ToTensor()
                             ])
@@ -176,55 +205,55 @@ class test_ImgDataset(Dataset):
         return len(self.ds)
 
 
-def mnist(batch_size=16, path_to_data='../data', transform=None):
-    """MNIST dataloader.
-    Parameters
-    ----------
-    batch_size : int
-    size : int
-        Size (height and width) of each image. Default is 28 for no resizing.
-    path_to_data : string
-        Path to MNIST data files.
-    """
-    # all_transforms = transforms.Compose([
-    #     transforms.Resize(size),
-    #     transforms.ToTensor()
-    # ])
+# def mnist(batch_size=16, path_to_data='../data', transform=None):
+#     """MNIST dataloader.
+#     Parameters
+#     ----------
+#     batch_size : int
+#     size : int
+#         Size (height and width) of each image. Default is 28 for no resizing.
+#     path_to_data : string
+#         Path to MNIST data files.
+#     """
+#     # all_transforms = transforms.Compose([
+#     #     transforms.Resize(size),
+#     #     transforms.ToTensor()
+#     # ])
 
-    train_data = datasets.MNIST(path_to_data, train=True, download=True,
-                                transform=transform)
-    # test_data = datasets.MNIST(path_to_data, train=False,
-                               #transform=transform)
+#     train_data = datasets.MNIST(path_to_data, train=True, download=True,
+#                                 transform=transform)
+#     # test_data = datasets.MNIST(path_to_data, train=False,
+#                                #transform=transform)
 
-    # train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    # test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
+#     # train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+#     # test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
 
-    return train_data
+#     return train_data
 
 
-def celeba(batch_size=16, path_to_data='../celeba_data', transform=None):
-    """CelebA dataloader.
-    Parameters
-    ----------
-    batch_size : int
-    size : int
-        Size (height and width) of each image.
-    crop : int
-        Size of center crop. This crop happens *before* the resizing.
-    path_to_data : string
-        Path to CelebA data files.
-    """
-    #transform = transforms.Compose([
-    #    transforms.CenterCrop(crop),
-    #    transforms.Resize(size),
-    #    transforms.ToTensor()
-    #])
+# def celeba(batch_size=16, path_to_data='../celeba_data', transform=None):
+#     """CelebA dataloader.
+#     Parameters
+#     ----------
+#     batch_size : int
+#     size : int
+#         Size (height and width) of each image.
+#     crop : int
+#         Size of center crop. This crop happens *before* the resizing.
+#     path_to_data : string
+#         Path to CelebA data files.
+#     """
+#     #transform = transforms.Compose([
+#     #    transforms.CenterCrop(crop),
+#     #    transforms.Resize(size),
+#     #    transforms.ToTensor()
+#     #])
 
-    celeba_data = CelebADataset(path_to_data,subsample=1,
-                               transform=transform)
-    #celeba_loader = DataLoader(celeba_data, batch_size=batch_size,
-    #                           shuffle=shuffle)
-    return celeba_data
+#     celeba_data = CelebADataset(path_to_data,subsample=1,
+#                                transform=transform)
+#     #celeba_loader = DataLoader(celeba_data, batch_size=batch_size,
+#     #                           shuffle=shuffle)
+#     return celeba_data
 
 
 class CelebADataset(Dataset):
@@ -242,6 +271,8 @@ class CelebADataset(Dataset):
         """
         if os.path.isdir(f'../celebA/img_align_celeba'):
             path_to_data = f'../celebA/img_align_celeba'
+        if os.path.isdir(f'{path_to_data}/celeba32/img_align_celeba'):
+            path_to_data = f'{path_to_data}/celeba32/img_align_celeba'
         self.img_paths = glob.glob(path_to_data + '/*.jpg')[::subsample]
         self.transform = transform
 
