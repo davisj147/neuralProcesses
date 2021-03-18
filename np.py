@@ -1,7 +1,6 @@
 import torch
 from torch import nn
 from torch.distributions import Normal
-from utils import img_mask_to_np_input
 
 class LinearEncoder(nn.Module):
     """
@@ -13,16 +12,18 @@ class LinearEncoder(nn.Module):
     ----------
     x_dim : int
         Dimension of x values.
+
     y_dim : int
         Dimension of y values.
+
     h_dims : List[int]
         Dimensions of hidden layers. Should be non-empty
+
     r_dim : int
         Dimension of output representation r.
     """
     def __init__(self, x_dim, y_dim, h_dims, r_dim):
         super(LinearEncoder, self).__init__()
-        print(f"encorder len(h_dims) {len(h_dims)}, h_dims {h_dims}, h_dims[-1] {h_dims[-1]}")
 
         layers = [nn.Linear(x_dim + y_dim, h_dims[0]), nn.ReLU(inplace=True)]
         for i in range(1, len(h_dims)):
@@ -41,6 +42,7 @@ class LinearEncoder(nn.Module):
         ----------
         x : torch.Tensor
             Shape (batch_size, points, x_dim)
+
         y : torch.Tensor
             Shape (batch_size, points, y_dim)
         """
@@ -67,10 +69,13 @@ class LinearDecoder(nn.Module):
     ----------
     x_dim : int
         Dimension of x values.
+
     z_dim : int
         Dimension of z values.
+
     h_dims : List[int]
         Dimensions of hidden layers. Should be non-empty
+
     y_dim : int
         Dimension of output y.
     """
@@ -101,6 +106,7 @@ class LinearDecoder(nn.Module):
         ----------
         x : torch.Tensor
             Shape (batch_size, points, x_dim)
+
         z : torch.Tensor
             Shape (batch_size, z_dim)
         """
@@ -122,7 +128,8 @@ class LinearDecoder(nn.Module):
 
         # this as per Emp. evaluation of NP objectives
         # can't seem to find out what the NP paper did exactly
-        sigmas = 0.1 + 0.9 * nn.functional.softplus(sigmas)
+        # sigmas = 0.1 + 0.9 * nn.functional.softplus(sigmas)
+        sigmas = 0.01 + 0.99 * nn.functional.softplus(sigmas)
 
         return means, sigmas
 
@@ -156,18 +163,20 @@ class LinearRToDist(nn.Module):
     ----------
     r_dim : int
         Dimension of r values.
+
     h_dim : int
     Dimension of the hidden layer.
+
     z_dim : int
         Dimension of z (latent) values.
     """
     def __init__(self, r_dim, h_dim, z_dim):
         super(LinearRToDist, self).__init__()
-        
-        self.to_hidden = nn.Sequential(nn.Linear(r_dim, r_dim), nn.ReLU(inplace=True)) ##
+
+        self.to_hidden = nn.Sequential(nn.Linear(r_dim, h_dim), nn.ReLU(inplace=True))
         # as per the original tf notebook, these two do not use activation dunctions
-        self.to_mu = nn.Linear(r_dim, z_dim)  ##
-        self.to_sigma = nn.Linear(r_dim, z_dim)  ##
+        self.to_mu = nn.Linear(h_dim, z_dim)
+        self.to_sigma = nn.Linear(h_dim, z_dim)
 
     def forward(self, r):
         """
@@ -183,7 +192,8 @@ class LinearRToDist(nn.Module):
 
         # this as per Emp. evaluation of NP objectives and the tf notebook
         # can't seem to find out what the NP paper did exactly
-        sigmas = 0.1 + 0.9 * torch.sigmoid(sigmas)
+        # sigmas = 0.1 + 0.9 * torch.sigmoid(sigmas)
+        sigmas = 0.01 + 0.99 * torch.sigmoid(sigmas)
 
         return means, sigmas
 
@@ -199,12 +209,15 @@ class NeuralProcess(nn.Module):
     encoder : nn.Module
     module mapping x, y (shape n_batch x n_points x n_features) to summary representation
     r (shape n_batch x n_points x r_dim)
+
     decoder : nn.Module
     module mapping x (shape n_batch x n_points x n_features), z (shape n_batch x z_dim) to 
     output distribution parameters y_mean and y_sigma (shapes n_batch x n_points x y_dim)
+
     combiner : nn.Module
     module performing a permutation invariant combination of r (shape n_batch x points x r_dim)
     for each batch entry to produce summaries (shape n_batch x r_dim)
+
     r_to_dist_encoder : nn.Module
     module mapping summaries r (shape n_batch x r_dim) to latent variable distribution parameters
     z_mu and z_sigma (shapes n_batch x z_dim)
@@ -249,7 +262,7 @@ class NeuralProcess(nn.Module):
         y_mu, y_sigma = self.decoder(x_target, z_sample)
 
         dist_y = Normal(y_mu, y_sigma)
-
+ 
         return dist_y, dist_context, dist_target
 
 
@@ -275,3 +288,4 @@ class SimpleNP(NeuralProcess):
             combiner,
             r_to_dist_encoder
         )
+
