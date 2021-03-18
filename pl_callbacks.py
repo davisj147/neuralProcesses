@@ -114,7 +114,8 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
         _, channels, img_h, img_w = x.shape
         img_id = random.randint(1, x.shape[0])
         imgs = []
-        for n_context in [8, 32, 64, 256, 28*28]:
+        # for n_context in [8, 32, 64, 256, 28*28]:
+        for n_context in [8, 32, 64, 256, trainer.datamodule.val_dataloader().dataset.img_size**2]:
             # x_context, y_context, _, _ = process_data_to_points(x[(i-1):i], y[(i-1):i],
             #                                                     pl_module.num_context)
             x_context, y_context, _, _ = process_data_to_points(x[(img_id-1):img_id], y[(img_id-1):img_id],

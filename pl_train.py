@@ -85,7 +85,7 @@ if __name__ == '__main__':
     # ------------------------
     # 4 INIT TRAINER
     # ------------------------
-    cbs = [EarlyStopping(monitor='validation_loss', verbose=True, patience=5, mode='min'),
+    cbs = [#EarlyStopping(monitor='validation_loss', verbose=True, patience=5, mode='min'),
            WandbLogPriorPosteriorSamplePlots()]
     trainer = pl.Trainer(gpus=0 if args.cpu or not torch.cuda.is_available() else 1,
                          max_epochs=args.max_epochs,

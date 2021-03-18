@@ -18,6 +18,10 @@ class PLNeuralProcess(pl.LightningModule):
         self.num_target = num_target
         self.n_context_range = (3, num_context)
         self.n_target_range = (num_context, num_context+num_target)
+        
+        # self.n_context_range = (num_context, num_context)
+        # self.n_target_range = (num_context+num_target, num_context+num_target)
+        
         self.r_dim = r_dim
         self.z_dim = z_dim
         self.h_dim = h_dim

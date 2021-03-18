@@ -55,9 +55,9 @@ class GPData(Dataset):
             self.xs.append(x)
             self.ys.append(np.expand_dims(y, 1))
     
-    def generate_gp_sample(self, rng):
+    def generate_gp_sample(self, rng, bounds=(-1,1)):
         period=0
-        x = np.linspace(-1, 1, self.num_points).reshape((-1,1))        
+        x = np.linspace(bounds[0], bounds[1], self.num_points).reshape((-1,1))        
         lengthscale = (self.max_l - self.min_l) * rng.random() + self.min_l
         sigma = (self.max_sigma - self.min_sigma) * rng.random() + self.min_sigma
 
@@ -165,11 +165,11 @@ class ImgDataset(Dataset):
             self.ds = datasets.MNIST(path_to_data, train=True, transform=self.transforms) 
         elif dataset_type == 'celeb':
             self.transforms = transforms.Compose([
-                                transforms.CenterCrop(89),
+                                transforms.CenterCrop(150),
                                 transforms.Resize(self.img_size),
                                 transforms.ToTensor()
                             ])
-            self.ds = CelebADataset(path_to_data,subsample=1, transform=self.transforms)
+            self.ds = CelebADataset(path_to_data,subsample=3, transform=self.transforms)
 
     def __getitem__(self, index):
         return self.ds[index]
@@ -192,11 +192,11 @@ class test_ImgDataset(Dataset):
             self.ds = datasets.MNIST(path_to_data, train=False, transform=self.transforms)
         elif dataset_type == 'celeb':
             self.transforms = transforms.Compose([
-                                transforms.CenterCrop(89),
+                                transforms.CenterCrop(150),
                                 transforms.Resize(self.img_size),
                                 transforms.ToTensor()
                             ])
-            self.ds = CelebADataset(path_to_data,subsample=1, transform=self.transforms)
+            self.ds = CelebADataset(path_to_data,subsample=3, transform=self.transforms)
 
     def __getitem__(self, index):
         return self.ds[index]

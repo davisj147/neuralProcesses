@@ -156,7 +156,7 @@ class MeanCombiner(nn.Module):
 
 
 class LinearRToDist(nn.Module):
-    """
+    """http://teaching.eng.cam.ac.uk/past-papers/part-iib?field_paper_course_code_tid=640
     Class to map aggregated summary results R to the parameters mu_z and sigma_z mu_z and sigma_z
     for the latent variable distribution
     Parameters
