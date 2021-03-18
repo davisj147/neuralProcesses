@@ -7,7 +7,6 @@ from np import SimpleNP
 from random import randint
 import numpy as np
 
-
 class PLNeuralProcess(pl.LightningModule):
     def __init__(self, x_dim, y_dim, lr=1e-3, num_context=8, num_target=16, r_dim=50, z_dim=50,
                  h_dim=50, h_dim_enc=[50, 50], h_dim_dec=[50, 50, 50]):
@@ -57,7 +56,6 @@ class PLNeuralProcess(pl.LightningModule):
                                                                           n_target)
         dist_y, dist_context, dist_target = self.model(x_context, y_context,
                                                        x_target, y_target)
-
         loss = self._loss(dist_y, y_target, dist_context, dist_target)
         # loss = 1
 
@@ -72,14 +70,13 @@ class PLNeuralProcess(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         X, y = batch
 
-        n_context = 100 #arbitrary number, e.g. 3,10,50,100,784,1024
-        n_target = 1024 - n_context #large number
+        n_context = 100 #arbitrary number
+        n_target = 1024-n_context #max-n_context
 
         x_context, y_context, x_target, y_target = process_data_to_points(X, y, n_context,
                                                                           n_target)
         dist_y, dist_context, dist_target = self.model(x_context, y_context,
                                                        x_target, y_target)
-
         loss = self._loss(dist_y, y_target, dist_context, dist_target)
         # loss = 1
 
@@ -94,7 +91,7 @@ class PLNeuralProcess(pl.LightningModule):
                                      lr=self.lr,
                                      weight_decay=0)
 
-        return [optimizer]
+        return optimizer
 
     @staticmethod
     def _loss(dist_y, y_target, dist_context, dist_target):
