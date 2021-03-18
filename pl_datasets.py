@@ -98,4 +98,4 @@ class NPDataModule(NPBaseDataModule):
             test_dataset = test_ImgDataset('mnist', batch_size, **kwargs)
         elif dataset_type == 'celeb':
             test_dataset = test_ImgDataset('celeb', batch_size, **kwargs)
-        return test_dataset 
+        return test_dataset
