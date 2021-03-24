@@ -90,7 +90,7 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
                                                     y_context.to(pl_module.device),
                                                     x_target.to(pl_module.device), None)
                 # Extract mean of distribution
-                mu = p_y_pred.loc.detach()
+                mu = p_y_pred[0].loc.detach()
                 flat_axs[j].plot(x_target.cpu().numpy()[0], mu.cpu().numpy()[0],
                             alpha=0.1, c='b')
                 flat_axs[j].plot(x.cpu().numpy()[0], y.cpu().numpy()[0],
@@ -134,7 +134,7 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
                                                     y_context.to(pl_module.device),
                                                     x_target.to(pl_module.device), None)
                 # Extract mean of distribution
-                mu = p_y_pred.loc.detach()
+                mu = p_y_pred[0].loc.detach()
                 img_mu = mu.permute(0,2,1).reshape((channels, img_h, img_w)).detach().cpu()
                 imgs.append(img_mu)
         grid = make_grid(imgs, nrow=6, pad_value=1.)
@@ -180,8 +180,8 @@ def _visualise_with_gp_comparison(ax, x, y, l, s, p, kernel_type, pl_module, n_c
                                             y_context.to(pl_module.device),
                                             x_target.to(pl_module.device), None)
         # Extract mean of distribution
-        mu = p_y_pred.loc.detach().cpu().numpy()[0]
-        sigma = p_y_pred.scale.detach().cpu().numpy()
+        mu = p_y_pred[0].loc.detach().cpu().numpy()[0]
+        sigma = p_y_pred[0].scale.detach().cpu().numpy()
 
         ax.plot(x_target.cpu().numpy()[0], mu,
                     alpha=0.3, c='b')
