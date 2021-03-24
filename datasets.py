@@ -137,10 +137,11 @@ class SineData(Dataset):
             a = (a_max - a_min) * np.random.rand() + a_min
             # Sample random shift
             b = (b_max - b_min) * np.random.rand() + b_min
+            p = 2 * np.random.rand() + 1
             # Shape (num_points, x_dim)
             x = torch.linspace(-pi, pi, num_points).unsqueeze(1)
             # Shape (num_points, y_dim)
-            y = a * torch.sin(x - b)
+            y = a * torch.sin((x - b)*p)
             self.data.append((x, y))
 
     def __getitem__(self, index):
