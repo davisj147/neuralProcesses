@@ -161,7 +161,9 @@ def context_to_img(x_context, y_context, img_h, img_w):
     x_context = x_context.squeeze()
     x_coords = (x_context[:, 0] * img_w).long()
     y_coords = (x_context[:, 1] * img_h).long()
-    img = torch.zeros((channels, img_h, img_w))
+    img = torch.zeros((3, img_h, img_w))
+    if channels != 3:  # if mnist, change the background to blue
+        img[2][:,:] = 255
     img[:, x_coords, y_coords] = y_context[0, :, :].T
 
     return img

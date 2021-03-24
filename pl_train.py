@@ -14,13 +14,13 @@ parser.add_argument('--dataset_type', type=str, default='sine',
                     choices=['sine', 'gpdata', 'mnist', 'celeb'], help='Dataset name')
 parser.add_argument('--num_workers', type=int, default=0,
                     help='Number of CPU cores to load data on')
-parser.add_argument('--batch_size', type=int, default=125,
+parser.add_argument('--batch_size', type=int, default=250,
                     help='Data batch size')
-parser.add_argument('--num_context', type=int, default=30,
+parser.add_argument('--num_context', type=int, default=40,
                     help='Number of Context datapoints')
 parser.add_argument('--fix_n_context_and_target_points', action='store_true',
                     help='Whether to always select num_context and num_target points during training. Otherwise, select randomly from (3, num_context) and (1, num_target)')
-parser.add_argument('--num_target', type=int, default=70,
+parser.add_argument('--num_target', type=int, default=60,
                     help='Number of Target datapoints (Context + Target by convention)')
 parser.add_argument('--r_dim', type=int, default=50,
                     help='Dimension of encoder representation of context points')
@@ -47,13 +47,17 @@ parser.add_argument('--n-samples', type=int, default=1000,
                     help='number of samples for sine or gp dataset generation')
 parser.add_argument('--n-points', type=int, default=100,
                     help='number of points per sample samples for sine or gp dataset generation')
-parser.add_argument('--lengthscale-range', type=float, nargs='*', default=[0.7, 1.],
+parser.add_argument('--n-repeat', type=int, default=10,
+                    help='Number of samples per batch during training')
+parser.add_argument('--training_type', type=str, default='VI', choices=['VI', 'MLE'],
+                    help='Training type- variational inference and MLE')
+parser.add_argument('--lengthscale-range', type=float, nargs='*', default=[0.25, 0.3],
                     help='Range for lengthscales when generating GP data')
 parser.add_argument('--sigma-range', type=float, nargs='*', default=[0.7, 1.],
                     help='Range for sigma (output variance) when generating GP data')
 parser.add_argument('--period-range', type=float, nargs='*', default=[1., 1.],
                     help='Range for periods when generating GP data')
-parser.add_argument('--check_val_every_n_epoch', type=int, default=50,
+parser.add_argument('--check_val_every_n_epoch', type=int, default=100,
                     help='How often to run validation loop and run logging plots')
 
 args = parser.parse_args()
@@ -64,6 +68,7 @@ if __name__ == '__main__':
     # ------------------------
     dm = NPDataModule(dataset_type=args.dataset_type,
                       num_workers=0, ## Running really slow when > 0
+                      path_to_data='/home/jack/Dropbox/MLMI/AdvancedML/AML_neural_processes/data',
                       batch_size=args.batch_size,
                       kernel=args.gp_kernel,
                       num_samples=args.n_samples,
@@ -85,16 +90,19 @@ if __name__ == '__main__':
                             z_dim=args.z_dim,
                             h_dim=args.h_dim,
                             h_dim_enc=args.h_dim_enc,
-                            h_dim_dec=args.h_dim_dec)
+                            h_dim_dec=args.h_dim_dec,
+                            n_repeat=args.n_repeat,
+                            training_type=args.training_type)
 
     # ------------------------
     # 4 INIT TRAINER
     # ------------------------
-    cbs = [#EarlyStopping(monitor='validation_loss', verbose=True, patience=5, mode='min'),
-           WandbLogPriorPosteriorSamplePlots()]
+    # cbs = [#EarlyStopping(monitor='validation_loss', verbose=True, patience=5, mode='min'),
+    #        WandbLogPriorPosteriorSamplePlots()]
+    cbs = []
     trainer = pl.Trainer(gpus=0 if args.cpu or not torch.cuda.is_available() else 1,
                          max_epochs=args.max_epochs,
-                         checkpoint_callback=True,
+                         checkpoint_callback=True, num_sanity_val_steps=0,
                          # ModelCheckpoint(
                          #     monitor='training_loss',
                          #     filename='neural_process-{epoch:02d}-{validation_loss:.2f}'),
@@ -102,7 +110,8 @@ if __name__ == '__main__':
                                             log_model=True),
                          check_val_every_n_epoch=args.check_val_every_n_epoch,
                          auto_lr_find=args.tune_lr,
-                         callbacks=cbs)
+                         callbacks=cbs,
+                         profiler='simple')
 
     # ------------------------
     # 5 START TRAINING

@@ -13,19 +13,23 @@ class PLNeuralProcess(pl.LightningModule):
                  num_context=8, num_target=16,
                  r_dim=50, z_dim=50,
                  h_dim=50, h_dim_enc=[50, 50], h_dim_dec=[50, 50, 50],
-                 fix_n_context_and_target_points=False):
+                 fix_n_context_and_target_points=False,
+                 n_repeat=1,
+                 training_type='VI'):
         super(PLNeuralProcess, self).__init__()
         self.x_dim = x_dim
         self.y_dim = y_dim
         self.num_context = num_context
         self.num_target = num_target
         self.fix_n_context_and_target_points = fix_n_context_and_target_points
+        self.n_repeat = n_repeat
+        self.training_type=training_type
 
         if self.fix_n_context_and_target_points:
-            self.n_context_range(num_context, num_context)
-            self.n_target_range(num_context+num_target, num_context + num_target)
+            self.n_context_range = (num_context, num_context)
+            self.n_target_range = (num_context+num_target, num_context + num_target)
         else:
-            self.n_context_range = (3, num_context)
+            self.n_context_range = (5, num_context)
             self.n_target_range = (num_context, num_context+num_target)
 
         self.r_dim = r_dim
@@ -42,7 +46,7 @@ class PLNeuralProcess(pl.LightningModule):
         x, y = batch
         n_context = randint(*self.n_context_range)
         n_total = randint(*self.n_target_range)
-        x_context, y_context, x_target, y_target = process_data_to_points(x, y, n_context, n_total)
+        x_context, y_context, x_target, y_target = process_data_to_points(x, y, n_context, None)
         dist_y, dist_context, dist_target = self.model(x_context, y_context, x_target, y_target)
         return dist_y, dist_context, dist_target, y_target
 
@@ -58,7 +62,9 @@ class PLNeuralProcess(pl.LightningModule):
                                  z_dim=self.z_dim,
                                  h_dim=self.h_dim,
                                  h_dims_dec=self.h_dim_dec,
-                                 h_dims_enc=self.h_dim_enc)
+                                 h_dims_enc=self.h_dim_enc,
+                                 n_repeat=self.n_repeat,
+                                 training_type=self.training_type)
         return neuralprocess
 
     def training_step(self, batch, batch_idx):
@@ -94,7 +100,9 @@ class PLNeuralProcess(pl.LightningModule):
     def _loss(dist_y, y_target, dist_context, dist_target):
         # assumes the first dimension (0) corresponds to batch element
         # total log probability of ys averaged over the batch
-        ll = dist_y.log_prob(y_target).mean(dim=0).sum()
+        ll_list = [dist_y_i.log_prob(y_target).mean(dim=0).sum() for dist_y_i in dist_y]
+        ll = torch.stack(ll_list).mean(dim=0)
+        # ll = dist_y.log_prob(y_target).mean(dim=0).sum()
         kl = kl_divergence(dist_target, dist_context).mean(dim=0).sum()
 
         return -1 * ll + kl
