@@ -47,7 +47,7 @@ parser.add_argument('--n-samples', type=int, default=1000,
                     help='number of samples for sine or gp dataset generation')
 parser.add_argument('--n-points', type=int, default=100,
                     help='number of points per sample samples for sine or gp dataset generation')
-parser.add_argument('--n-repeat', type=int, default=10,
+parser.add_argument('--n-repeat', type=int, default=1,
                     help='Number of samples per batch during training')
 parser.add_argument('--training_type', type=str, default='VI', choices=['VI', 'MLE'],
                     help='Training type- variational inference and MLE')
@@ -68,7 +68,7 @@ if __name__ == '__main__':
     # ------------------------
     dm = NPDataModule(dataset_type=args.dataset_type,
                       num_workers=0, ## Running really slow when > 0
-                      path_to_data='/home/jack/Dropbox/MLMI/AdvancedML/AML_neural_processes/data',
+                      # path_to_data='/home/jack/Dropbox/MLMI/AdvancedML/AML_neural_processes/data',
                       batch_size=args.batch_size,
                       kernel=args.gp_kernel,
                       num_samples=args.n_samples,

@@ -45,7 +45,7 @@ class PLNeuralProcess(pl.LightningModule):
     def forward(self, batch):
         x, y = batch
         n_context = randint(*self.n_context_range)
-        n_total = randint(*self.n_target_range)
+        #n_total = randint(*self.n_target_range)
         x_context, y_context, x_target, y_target = process_data_to_points(x, y, n_context, None)
         dist_y, dist_context, dist_target = self.model(x_context, y_context, x_target, y_target)
         return dist_y, dist_context, dist_target, y_target
@@ -96,16 +96,19 @@ class PLNeuralProcess(pl.LightningModule):
 
         return optimizer
 
-    @staticmethod
-    def _loss(dist_y, y_target, dist_context, dist_target):
+    def _loss(self, dist_y, y_target, dist_context, dist_target):
         # assumes the first dimension (0) corresponds to batch element
         # total log probability of ys averaged over the batch
-        ll_list = [dist_y_i.log_prob(y_target).mean(dim=0).sum() for dist_y_i in dist_y]
-        ll = torch.stack(ll_list).mean(dim=0)
-        # ll = dist_y.log_prob(y_target).mean(dim=0).sum()
-        kl = kl_divergence(dist_target, dist_context).mean(dim=0).sum()
+        if self.training_type == 'VI':
+            ll_list = [dist_y_i.log_prob(y_target).mean(dim=0).sum() for dist_y_i in dist_y]
+            ll = torch.stack(ll_list).mean(dim=0)
+            kl = kl_divergence(dist_target, dist_context).mean(dim=0).sum()
+            return -1 * ll + kl
 
-        return -1 * ll + kl
+        elif self.training_type == 'MLE':
+            ll_list = [dist_y_i.log_prob(y_target).sum(dim=1) for dist_y_i in dist_y] ## sum over target points
+            ll = torch.logsumexp(torch.stack(ll_list), dim=0).mean() ## logsumexp over mote carlo samples; average over batches
+            return -1 * ll
 
 
 def process_data_to_points(X_train, y_train, n_context, n_total=None):
