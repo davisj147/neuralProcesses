@@ -9,8 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import datasets, transforms
 
 from sklearn.gaussian_process.kernels import RBF, Matern, ExpSineSquared
-
-
+from random import sample
 
 class GPData(Dataset):
     """
@@ -29,35 +28,68 @@ class GPData(Dataset):
     num_points : int
         Number of points at which to evaluate f(x) for x in [-1, 1]. <- could also change this later
     """
-    def __init__(self, lengthscale_range=(0.25, 0.5), sigma_range=(1, 1), period_range = (1,1), 
-                    num_samples=10000, num_points=100, kernel = 'rbf', **kwargs):
-        self.is_img=False
+
+    def __init__(self, num_context_points=20, num_target_points=80,
+                 lengthscale_range=(0.25, 0.5), sigma_range=(1, 1), period_range=(1, 1),
+                 num_samples=10000, num_points=100, kernel='rbf', shuffle_context_position=False):
+
+        assert (kernel in ['rbf', 'periodic', 'matern'])
+        self.is_img = False
         self.img_size = None  ##
         self.num_samples = num_samples
+        self.num_context_points = num_context_points
+        self.num_target_points = num_target_points
         self.num_points = num_points
+        self.shuffle_context_position = shuffle_context_position
         self.x_dim = 1  # x and y dim are fixed for this dataset.
         self.y_dim = 1
 
-        assert(kernel in ['rbf', 'periodic', 'matern'])
-        self.kernel=kernel
+        self.kernel = kernel
 
         self.min_l, self.max_l = lengthscale_range
         self.min_sigma, self.max_sigma = sigma_range
         self.min_p, self.max_p = period_range
 
+        self._generate_data()
+        # self._split_data_to_context_target_points()
+
+    def _generate_data(self):
         # Generate data
         rng = np.random.default_rng()
         self.xs = []
         self.ys = []
-        for i in range(num_samples):
+        for i in range(self.num_samples):
             x, y, _, _, _ = self.generate_gp_sample(rng)
 
             self.xs.append(x)
             self.ys.append(np.expand_dims(y, 1))
-    
+
+    # def _split_data_to_context_target_points(self):
+    #     ## Choice to keep the same context positions for comparison purposes
+    #     if self.shuffle_context_position:
+    #         context_indices = [sample(range(len(i)), self.num_context_points) for i in self.xs]
+    #     else:
+    #         sample_context_indices = sample(range(len(self.xs[0])), self.num_context_points)
+    #         context_indices = [sample_context_indices for i in range(len(self.xs))]
+    #
+    #     ## Always shuffle target indices.
+    #     target_indices = [sample(list(set(range(len(self.xs[i]))) - set(context_indices[i])),
+    #                              self.num_target_points) for i in range(len(self.xs))]
+    #
+    #     self.data = [{'context_points_x': torch.tensor(x[ctx_ind]).float(),
+    #                   'context_points_y': torch.tensor(y[ctx_ind]).float(),
+    #                   'target_points_x': torch.tensor(x[ctx_ind + tar_ind]).float(),
+    #                   'target_points_y': torch.tensor(y[ctx_ind + tar_ind]).float(),
+    #                   'target_points_only_x': torch.tensor(x[tar_ind]).float(),
+    #                   'target_points_only_y': torch.tensor(y[tar_ind]).float(),
+    #                   'context_points_x_all': torch.tensor(x).float(),
+    #                   'context_points_y_all': torch.tensor(y).float()
+    #                   } for ctx_ind, tar_ind, x, y in
+    #                  zip(context_indices, target_indices, self.xs, self.ys)]
+
     def generate_gp_sample(self, rng):
-        period=0
-        x = np.linspace(-1, 1, self.num_points).reshape((-1,1))        
+        period = 0
+        x = np.linspace(-np.pi, np.pi, self.num_points).reshape((-1, 1))
         lengthscale = (self.max_l - self.min_l) * rng.random() + self.min_l
         sigma = (self.max_sigma - self.min_sigma) * rng.random() + self.min_sigma
 
@@ -72,7 +104,6 @@ class GPData(Dataset):
 
         return x, y, lengthscale, sigma, period
 
-
     # will hopefully be able to add other kernels
     def rbf_kernel(self, xa, xb, lengthscale, sigma):
         """rbf kernel"""
@@ -80,25 +111,27 @@ class GPData(Dataset):
         # sq_norm = -0.5 * scipy.spatial.distance.cdist(xa, xb, 'sqeuclidean')
         # return (sigma**2)*np.exp(sq_norm/(lengthscale**2))
         kernel = RBF(length_scale=lengthscale)
-        return sigma**2 * kernel(xa, xb)
+        return sigma ** 2 * kernel(xa, xb)
 
     def periodic_kernel(self, xa, xb, lengthscale, sigma, period):
         # L1 distance
         # l1 = np.subtract.outer(xa, xb)
         # return (sigma**2)*np.exp((np.sin(np.pi * l1 / period)**2)/(lengthscale**2))
         kernel = ExpSineSquared(length_scale=lengthscale, periodicity=period)
-        return sigma**2 * kernel(xa, xb)
+        return sigma ** 2 * kernel(xa, xb)
 
     def matern_kernel(self, xa, xb, lengthscale, sigma, nu=1.5):
         kernel = Matern(length_scale=lengthscale, nu=nu)
-        return sigma**2 * kernel(xa, xb)
+        return sigma ** 2 * kernel(xa, xb)
 
     def __getitem__(self, index):
         # slightly changed because not sure if it makes sense to choose points as linspace for training
         return torch.tensor(self.xs[index]).float(), torch.tensor(self.ys[index]).float()
+        # return self.data[index]
 
     def __len__(self):
         return self.num_samples
+
 
 class SineData(Dataset):
     """
@@ -117,6 +150,7 @@ class SineData(Dataset):
     num_points : int
         Number of points at which to evaluate f(x) for x in [-pi, pi].
     """
+
     def __init__(self, amplitude_range=(-1., 1.), shift_range=(-.5, .5),
                  num_samples=1000, num_points=100, **kwargs):
         self.is_img = False
@@ -154,9 +188,9 @@ class ImgDataset(Dataset):
     def __init__(self, dataset_type, batch_size, path_to_data='../data', size=32, crop=89, **kwargs):
         self.batch_size = batch_size
         self.is_img = True
-        self.img_size = 28 if (dataset_type == 'mnist') else 32 
+        self.img_size = 28 if (dataset_type == 'mnist') else 32
         self.x_dim = 2
-        self.y_dim = 1 if (dataset_type == 'mnist') else 3 
+        self.y_dim = 1 if (dataset_type == 'mnist') else 3
         if dataset_type == 'mnist':
             self.transforms = transforms.Compose([
                                 transforms.Resize(self.img_size),
@@ -177,26 +211,27 @@ class ImgDataset(Dataset):
     def __len__(self):
         return len(self.ds)
 
+
 class test_ImgDataset(Dataset):
     def __init__(self, dataset_type, batch_size, path_to_data='../data', **kwargs):
         self.batch_size = batch_size
         self.is_img = True
-        self.img_size = 28 if (dataset_type == 'mnist') else 32 
+        self.img_size = 28 if (dataset_type == 'mnist') else 32
         self.x_dim = 2
-        self.y_dim = 1 if (dataset_type == 'mnist') else 3 
+        self.y_dim = 1 if (dataset_type == 'mnist') else 3
         if dataset_type == 'mnist':
             self.transforms = transforms.Compose([
-                                transforms.Resize(self.img_size),
-                                transforms.ToTensor()
-                            ])
+                transforms.Resize(self.img_size),
+                transforms.ToTensor()
+            ])
             self.ds = datasets.MNIST(path_to_data, train=False, transform=self.transforms)
         elif dataset_type == 'celeb':
             self.transforms = transforms.Compose([
-                                transforms.CenterCrop(89),
-                                transforms.Resize(self.img_size),
-                                transforms.ToTensor()
-                            ])
-            self.ds = CelebADataset(path_to_data,subsample=1, transform=self.transforms)
+                transforms.CenterCrop(89),
+                transforms.Resize(self.img_size),
+                transforms.ToTensor()
+            ])
+            self.ds = CelebADataset(path_to_data, subsample=1, transform=self.transforms)
 
     def __getitem__(self, index):
         return self.ds[index]
@@ -258,6 +293,7 @@ class test_ImgDataset(Dataset):
 
 class CelebADataset(Dataset):
     """CelebA dataset."""
+
     def __init__(self, path_to_data, subsample=1, transform=None):
         """
         Parameters

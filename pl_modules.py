@@ -9,15 +9,29 @@ import numpy as np
 
 
 class PLNeuralProcess(pl.LightningModule):
-    def __init__(self, x_dim, y_dim, lr=1e-3, num_context=8, num_target=16, r_dim=50, z_dim=50,
-                 h_dim=50, h_dim_enc=[50, 50], h_dim_dec=[50, 50, 50]):
+    def __init__(self, x_dim, y_dim, lr=1e-3,
+                 num_context=8, num_target=16,
+                 r_dim=50, z_dim=50,
+                 h_dim=50, h_dim_enc=[50, 50], h_dim_dec=[50, 50, 50],
+                 fix_n_context_and_target_points=False,
+                 n_repeat=1,
+                 training_type='VI'):
         super(PLNeuralProcess, self).__init__()
         self.x_dim = x_dim
         self.y_dim = y_dim
         self.num_context = num_context
         self.num_target = num_target
-        self.n_context_range = (3, num_context)
-        self.n_target_range = (num_context, num_context+num_target)
+        self.fix_n_context_and_target_points = fix_n_context_and_target_points
+        self.n_repeat = n_repeat
+        self.training_type=training_type
+
+        if self.fix_n_context_and_target_points:
+            self.n_context_range = (num_context, num_context)
+            self.n_target_range = (num_context+num_target, num_context + num_target)
+        else:
+            self.n_context_range = (5, num_context)
+            self.n_target_range = (num_context, num_context+num_target)
+
         self.r_dim = r_dim
         self.z_dim = z_dim
         self.h_dim = h_dim
@@ -28,9 +42,13 @@ class PLNeuralProcess(pl.LightningModule):
         self.save_hyperparameters()
         self.model = self._build_model()
 
-    # def forward(self, x):
-    #     x = self.model(x)
-    #     return x
+    def forward(self, batch):
+        x, y = batch
+        n_context = randint(*self.n_context_range)
+        #n_total = randint(*self.n_target_range)
+        x_context, y_context, x_target, y_target = process_data_to_points(x, y, n_context, None)
+        dist_y, dist_context, dist_target = self.model(x_context, y_context, x_target, y_target)
+        return dist_y, dist_context, dist_target, y_target
 
     # def predict(self, images, threshold=None):
     #     self.eval()
@@ -44,23 +62,15 @@ class PLNeuralProcess(pl.LightningModule):
                                  z_dim=self.z_dim,
                                  h_dim=self.h_dim,
                                  h_dims_dec=self.h_dim_dec,
-                                 h_dims_enc=self.h_dim_enc)
+                                 h_dims_enc=self.h_dim_enc,
+                                 n_repeat=self.n_repeat,
+                                 training_type=self.training_type)
         return neuralprocess
 
     def training_step(self, batch, batch_idx):
-        X, y = batch
-
-        n_context = randint(*self.n_context_range)
-        n_target = randint(*self.n_target_range)
-
-        x_context, y_context, x_target, y_target = process_data_to_points(X, y, n_context,
-                                                                          n_target)
-        dist_y, dist_context, dist_target = self.model(x_context, y_context,
-                                                       x_target, y_target)
-
+        self.train()
+        dist_y, dist_context, dist_target, y_target = self(batch)
         loss = self._loss(dist_y, y_target, dist_context, dist_target)
-        # loss = 1
-
         return {'loss': loss}
 
     def training_step_end(self, outputs):
@@ -70,19 +80,9 @@ class PLNeuralProcess(pl.LightningModule):
         return {'loss': outputs['loss']}
 
     def validation_step(self, batch, batch_idx):
-        X, y = batch
-
-        n_context = 100 #arbitrary number
-        n_target = 1024-n_context #max-n_context
-
-        x_context, y_context, x_target, y_target = process_data_to_points(X, y, n_context,
-                                                                          n_target)
-        dist_y, dist_context, dist_target = self.model(x_context, y_context,
-                                                       x_target, y_target)
-
+        self.eval()
+        dist_y, dist_context, dist_target, y_target = self(batch)
         loss = self._loss(dist_y, y_target, dist_context, dist_target)
-        # loss = 1
-
         return {'loss': loss}
 
     def validation_step_end(self, outputs):
@@ -96,14 +96,19 @@ class PLNeuralProcess(pl.LightningModule):
 
         return optimizer
 
-    @staticmethod
-    def _loss(dist_y, y_target, dist_context, dist_target):
+    def _loss(self, dist_y, y_target, dist_context, dist_target):
         # assumes the first dimension (0) corresponds to batch element
         # total log probability of ys averaged over the batch
-        ll = dist_y.log_prob(y_target).mean(dim=0).sum()
-        kl = kl_divergence(dist_target, dist_context).mean(dim=0).sum()
+        if self.training_type == 'VI':
+            ll_list = [dist_y_i.log_prob(y_target).mean(dim=0).sum() for dist_y_i in dist_y]
+            ll = torch.stack(ll_list).mean(dim=0)
+            kl = kl_divergence(dist_target, dist_context).mean(dim=0).sum()
+            return -1 * ll + kl
 
-        return -1 * ll + kl
+        elif self.training_type == 'MLE':
+            ll_list = [dist_y_i.log_prob(y_target).sum(dim=1) for dist_y_i in dist_y] ## sum over target points
+            ll = torch.logsumexp(torch.stack(ll_list), dim=0).mean() ## logsumexp over mote carlo samples; average over batches
+            return -1 * ll
 
 
 def process_data_to_points(X_train, y_train, n_context, n_total=None):

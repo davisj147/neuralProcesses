@@ -50,13 +50,13 @@ class LinearEncoder(nn.Module):
         batch_size, n_points, _ = x.size()
 
         net_input = torch.cat((
-            x.view(batch_size * n_points, -1), 
-            y.view(batch_size * n_points, -1)
+            x.reshape(batch_size * n_points, -1),
+            y.reshape(batch_size * n_points, -1)
             ), dim=1)
 
         rs = self.to_r(net_input)
 
-        return rs.view(batch_size, n_points, -1)
+        return rs.reshape(batch_size, n_points, -1)
         
 
 class LinearDecoder(nn.Module):
@@ -129,7 +129,7 @@ class LinearDecoder(nn.Module):
         # this as per Emp. evaluation of NP objectives
         # can't seem to find out what the NP paper did exactly
         # sigmas = 0.1 + 0.9 * nn.functional.softplus(sigmas)
-        sigmas = 0.01 + 0.99 * nn.functional.softplus(sigmas)
+        sigmas = 0.001 + 0.999 * nn.functional.softplus(sigmas)
 
         return means, sigmas
 
@@ -193,7 +193,7 @@ class LinearRToDist(nn.Module):
         # this as per Emp. evaluation of NP objectives and the tf notebook
         # can't seem to find out what the NP paper did exactly
         # sigmas = 0.1 + 0.9 * torch.sigmoid(sigmas)
-        sigmas = 0.01 + 0.99 * torch.sigmoid(sigmas)
+        sigmas = 0.001 + 0.999 * nn.functional.softplus(sigmas)
 
         return means, sigmas
 
@@ -225,12 +225,14 @@ class NeuralProcess(nn.Module):
 
 
     # should be a generic np class allowing for different encoders/decoders and combination methods
-    def __init__(self, encoder, decoder, combiner, r_to_dist_encoder):
+    def __init__(self, encoder, decoder, combiner, r_to_dist_encoder, n_repeat=1, training_type='VI'):
         super(NeuralProcess, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
         self.combiner = combiner
         self.r_to_z_dist = r_to_dist_encoder
+        self.n_repeat = n_repeat
+        self.training_type = training_type
 
     def encode_to_z_params(self, x, y):
         # also should have any needed reshaping etc
@@ -245,23 +247,29 @@ class NeuralProcess(nn.Module):
         dist_context = Normal(z_context_mu, z_context_sigma)
         
         if self.training:
-            # in training for VI actually also encode the target (which the context is a subset of)
-            # and use the z sampled from the more informed approximated posterior
-            z_target_mu, z_target_sigma = self.encode_to_z_params(x_target, y_target)
-            dist_target = Normal(z_target_mu, z_target_sigma)
-            z_sample = dist_target.rsample()
+            if self.training_type == 'VI':
+                # in training for VI actually also encode the target (which the context is a subset of)
+                # and use the z sampled from the more informed approximated posterior
+                z_target_mu, z_target_sigma = self.encode_to_z_params(x_target, y_target)
+                dist_target = Normal(z_target_mu, z_target_sigma)
+                z_sample = [dist_target.rsample() for i in range(self.n_repeat)]
+            elif self.training_type == "MLE":
+                z_sample = [dist_context.rsample() for i in range(self.n_repeat)]
+                dist_target=dist_context
+
 
         else:
+            print("Evaluating")
             # in testing we do not care about the returned context distributions so can just use a dummy
             # however we do need to sample from the context-encoding-parametrised z
 
             # TODO Does it make sense to put something else in here? How would we calculate validation loss
             dist_target=dist_context ## Added for validation step - makes KL 0
-            z_sample = dist_context.rsample()
+            z_sample = [dist_context.rsample()]
 
-        y_mu, y_sigma = self.decoder(x_target, z_sample)
+        y_mu_sigma = [self.decoder(x_target, z_sample_i) for z_sample_i in z_sample]
 
-        dist_y = Normal(y_mu, y_sigma)
+        dist_y = [Normal(y_mu_i, y_sigma_i) for y_mu_i, y_sigma_i in y_mu_sigma]
  
         return dist_y, dist_context, dist_target
 
@@ -272,7 +280,7 @@ class SimpleNP(NeuralProcess):
     Class to be used as a shortcut for creating a simple neural process 
     with all modules using linear MLPs 
     """
-    def __init__(self, x_dim, y_dim, r_dim=16, z_dim=16, h_dims_enc = [64, 64], h_dims_dec=[64,64], h_dim = 128):
+    def __init__(self, x_dim, y_dim, r_dim=16, z_dim=16, h_dims_enc = [64, 64], h_dims_dec=[64,64], h_dim = 128, n_repeat=1, training_type='VI'):
 
         # to make compatible with tf notebook (https://github.com/deepmind/neural-processes/blob/master/attentive_neural_process.ipynb)
         # values should be r_dim = 128, z_dim=128, h_dims_enc = [128]*4, h_dims_dec=[128]*2, h_dim=128
@@ -286,6 +294,8 @@ class SimpleNP(NeuralProcess):
             encoder,
             decoder,
             combiner,
-            r_to_dist_encoder
+            r_to_dist_encoder,
+            n_repeat,
+            training_type
         )
 

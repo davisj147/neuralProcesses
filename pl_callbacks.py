@@ -18,6 +18,7 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+
     def _visualise_prior_1d(self, pl_module):
         x_target = torch.Tensor(np.linspace(-1, 1, 100))
         x_target = x_target.unsqueeze(1).unsqueeze(0).to(pl_module.device)
@@ -89,7 +90,7 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
                                                     y_context.to(pl_module.device),
                                                     x_target.to(pl_module.device), None)
                 # Extract mean of distribution
-                mu = p_y_pred.loc.detach()
+                mu = p_y_pred[0].loc.detach()
                 flat_axs[j].plot(x_target.cpu().numpy()[0], mu.cpu().numpy()[0],
                             alpha=0.1, c='b')
                 flat_axs[j].plot(x.cpu().numpy()[0], y.cpu().numpy()[0],
@@ -133,7 +134,7 @@ class WandbLogPriorPosteriorSamplePlots(Callback):
                                                     y_context.to(pl_module.device),
                                                     x_target.to(pl_module.device), None)
                 # Extract mean of distribution
-                mu = p_y_pred.loc.detach()
+                mu = p_y_pred[0].loc.detach()
                 img_mu = mu.permute(0,2,1).reshape((channels, img_h, img_w)).detach().cpu()
                 imgs.append(img_mu)
         grid = make_grid(imgs, nrow=6, pad_value=1.)
@@ -160,7 +161,9 @@ def context_to_img(x_context, y_context, img_h, img_w):
     x_context = x_context.squeeze()
     x_coords = (x_context[:, 0] * img_w).long()
     y_coords = (x_context[:, 1] * img_h).long()
-    img = torch.zeros((channels, img_h, img_w))
+    img = torch.zeros((3, img_h, img_w))
+    if channels != 3:  # if mnist, change the background to blue
+        img[2][:,:] = 255
     img[:, x_coords, y_coords] = y_context[0, :, :].T
 
     return img
@@ -177,8 +180,8 @@ def _visualise_with_gp_comparison(ax, x, y, l, s, p, kernel_type, pl_module, n_c
                                             y_context.to(pl_module.device),
                                             x_target.to(pl_module.device), None)
         # Extract mean of distribution
-        mu = p_y_pred.loc.detach().cpu().numpy()[0]
-        sigma = p_y_pred.scale.detach().cpu().numpy()
+        mu = p_y_pred[0].loc.detach().cpu().numpy()[0]
+        sigma = p_y_pred[0].scale.detach().cpu().numpy()
 
         ax.plot(x_target.cpu().numpy()[0], mu,
                     alpha=0.3, c='b')
