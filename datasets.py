@@ -63,33 +63,10 @@ class GPData(Dataset):
 
             self.xs.append(x)
             self.ys.append(np.expand_dims(y, 1))
-
-    # def _split_data_to_context_target_points(self):
-    #     ## Choice to keep the same context positions for comparison purposes
-    #     if self.shuffle_context_position:
-    #         context_indices = [sample(range(len(i)), self.num_context_points) for i in self.xs]
-    #     else:
-    #         sample_context_indices = sample(range(len(self.xs[0])), self.num_context_points)
-    #         context_indices = [sample_context_indices for i in range(len(self.xs))]
-    #
-    #     ## Always shuffle target indices.
-    #     target_indices = [sample(list(set(range(len(self.xs[i]))) - set(context_indices[i])),
-    #                              self.num_target_points) for i in range(len(self.xs))]
-    #
-    #     self.data = [{'context_points_x': torch.tensor(x[ctx_ind]).float(),
-    #                   'context_points_y': torch.tensor(y[ctx_ind]).float(),
-    #                   'target_points_x': torch.tensor(x[ctx_ind + tar_ind]).float(),
-    #                   'target_points_y': torch.tensor(y[ctx_ind + tar_ind]).float(),
-    #                   'target_points_only_x': torch.tensor(x[tar_ind]).float(),
-    #                   'target_points_only_y': torch.tensor(y[tar_ind]).float(),
-    #                   'context_points_x_all': torch.tensor(x).float(),
-    #                   'context_points_y_all': torch.tensor(y).float()
-    #                   } for ctx_ind, tar_ind, x, y in
-    #                  zip(context_indices, target_indices, self.xs, self.ys)]
-
-    def generate_gp_sample(self, rng):
-        period = 0
-        x = np.linspace(-np.pi, np.pi, self.num_points).reshape((-1, 1))
+    
+    def generate_gp_sample(self, rng, bounds=(-1,1)):
+        period=0
+        x = np.linspace(bounds[0], bounds[1], self.num_points).reshape((-1,1))        
         lengthscale = (self.max_l - self.min_l) * rng.random() + self.min_l
         sigma = (self.max_sigma - self.min_sigma) * rng.random() + self.min_sigma
 
@@ -171,10 +148,11 @@ class SineData(Dataset):
             a = (a_max - a_min) * np.random.rand() + a_min
             # Sample random shift
             b = (b_max - b_min) * np.random.rand() + b_min
+            p = 2 * np.random.rand() + 1
             # Shape (num_points, x_dim)
             x = torch.linspace(-pi, pi, num_points).unsqueeze(1)
             # Shape (num_points, y_dim)
-            y = a * torch.sin(x - b)
+            y = a * torch.sin((x - b)*p)
             self.data.append((x, y))
 
     def __getitem__(self, index):
@@ -199,11 +177,11 @@ class ImgDataset(Dataset):
             self.ds = datasets.MNIST(path_to_data, train=True, transform=self.transforms) 
         elif dataset_type == 'celeb':
             self.transforms = transforms.Compose([
-                                transforms.CenterCrop(89),
+                                transforms.CenterCrop(150),
                                 transforms.Resize(self.img_size),
                                 transforms.ToTensor()
                             ])
-            self.ds = CelebADataset(path_to_data,subsample=1, transform=self.transforms)
+            self.ds = CelebADataset(path_to_data,subsample=3, transform=self.transforms)
 
     def __getitem__(self, index):
         return self.ds[index]
@@ -227,11 +205,11 @@ class test_ImgDataset(Dataset):
             self.ds = datasets.MNIST(path_to_data, train=False, transform=self.transforms)
         elif dataset_type == 'celeb':
             self.transforms = transforms.Compose([
-                transforms.CenterCrop(89),
-                transforms.Resize(self.img_size),
-                transforms.ToTensor()
-            ])
-            self.ds = CelebADataset(path_to_data, subsample=1, transform=self.transforms)
+                                transforms.CenterCrop(150),
+                                transforms.Resize(self.img_size),
+                                transforms.ToTensor()
+                            ])
+            self.ds = CelebADataset(path_to_data,subsample=3, transform=self.transforms)
 
     def __getitem__(self, index):
         return self.ds[index]
