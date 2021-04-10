@@ -156,7 +156,7 @@ class MeanCombiner(nn.Module):
 
 
 class LinearRToDist(nn.Module):
-    """http://teaching.eng.cam.ac.uk/past-papers/part-iib?field_paper_course_code_tid=640
+    """
     Class to map aggregated summary results R to the parameters mu_z and sigma_z mu_z and sigma_z
     for the latent variable distribution
     Parameters
@@ -259,11 +259,9 @@ class NeuralProcess(nn.Module):
 
 
         else:
-            print("Evaluating")
             # in testing we do not care about the returned context distributions so can just use a dummy
             # however we do need to sample from the context-encoding-parametrised z
 
-            # TODO Does it make sense to put something else in here? How would we calculate validation loss
             dist_target=dist_context ## Added for validation step - makes KL 0
             z_sample = [dist_context.rsample()]
 

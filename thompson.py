@@ -1,3 +1,6 @@
+"""
+Mostly unorganised file with functions that can be used to run Thompson sampling experiments
+"""
 from pl_modules import *
 from pl_datasets import *
 import torch
@@ -7,7 +10,6 @@ import matplotlib.pyplot as plt
 
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, Matern, ExpSineSquared, ConstantKernel
-
 
 def random_search(x, y, reps_allowed=True):
     min_id = np.argmin(y)

@@ -9,7 +9,7 @@ import torch
 
 import argparse
 
-parser = argparse.ArgumentParser(description='Train video action recognition models.')
+parser = argparse.ArgumentParser(description='Train Neural Process models on a given dataset.')
 parser.add_argument('--dataset_type', type=str, default='sine',
                     choices=['sine', 'gpdata', 'mnist', 'celeb'], help='Dataset name')
 parser.add_argument('--num_workers', type=int, default=0,

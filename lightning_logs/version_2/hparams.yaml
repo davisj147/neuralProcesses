@@ -1,0 +1,18 @@
+fix_n_context_and_target_points: false
+h_dim: 50
+h_dim_dec:
+- 50
+- 50
+- 50
+h_dim_enc:
+- 50
+- 50
+lr: 0.001
+n_repeat: 1
+num_context: 16
+num_target: 32
+r_dim: 50
+training_type: VI
+x_dim: 1
+y_dim: 1
+z_dim: 50
