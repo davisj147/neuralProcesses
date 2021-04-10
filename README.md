@@ -10,7 +10,7 @@ The main model is customisable from the command line and compatible with synthet
 
 *** 
 
-The `pl_train.py` can be configured using command line arguments:
+The `pl_train.py` script (main training entrypoint) can be configured using command line arguments:
 
     optional arguments:
     -h, --help            show this help message and exit
